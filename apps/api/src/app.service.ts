@@ -2,15 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
+import { RedisService } from './common/redis';
 
 @Injectable()
 export class AppService {
   constructor(
     private configService: ConfigService,
     @InjectConnection() private connection: Connection,
+    private redisService: RedisService,
   ) {}
 
-  getHealth() {
+  async getHealth() {
     const dbStatus = this.connection.readyState;
     const dbStatusMap: Record<number, string> = {
       0: 'disconnected',
@@ -19,8 +21,13 @@ export class AppService {
       3: 'disconnecting',
     };
 
+    const redisInfo = this.redisService.getConnectionInfo();
+    const redisConnected = await this.redisService.ping();
+
+    const overallStatus = dbStatus === 1 && redisConnected ? 'ok' : 'degraded';
+
     return {
-      status: dbStatus === 1 ? 'ok' : 'degraded',
+      status: overallStatus,
       timestamp: new Date().toISOString(),
       service: 'push-notification-service',
       version: '1.0.0',
@@ -29,6 +36,11 @@ export class AppService {
       database: {
         status: dbStatusMap[dbStatus] || 'unknown',
         name: this.connection.name,
+      },
+      redis: {
+        status: redisConnected ? 'connected' : 'disconnected',
+        type: redisInfo.type,
+        connected: redisInfo.connected,
       },
       features: {
         webhooks: this.configService.get('features.webhooks'),
