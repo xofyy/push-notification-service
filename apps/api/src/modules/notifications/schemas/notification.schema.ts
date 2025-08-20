@@ -18,9 +18,9 @@ export enum NotificationType {
   RECURRING = 'recurring',
 }
 
-@Schema({ 
+@Schema({
   timestamps: true,
-  collection: 'notifications'
+  collection: 'notifications',
 })
 export class Notification {
   @Prop({ required: true, ref: 'Project' })
@@ -41,17 +41,17 @@ export class Notification {
   @Prop({ type: Object, default: {} })
   data: Record<string, any>;
 
-  @Prop({ 
+  @Prop({
     required: true,
     enum: NotificationType,
-    default: NotificationType.INSTANT 
+    default: NotificationType.INSTANT,
   })
   type: NotificationType;
 
-  @Prop({ 
+  @Prop({
     required: true,
     enum: NotificationStatus,
-    default: NotificationStatus.PENDING 
+    default: NotificationStatus.PENDING,
   })
   status: NotificationStatus;
 
@@ -80,7 +80,7 @@ export class Notification {
       pattern: String, // cron pattern
       timezone: String,
       endDate: Date,
-    }
+    },
   })
   recurring?: {
     pattern: string;

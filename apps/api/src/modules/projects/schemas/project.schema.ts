@@ -3,9 +3,9 @@ import { Document } from 'mongoose';
 
 export type ProjectDocument = Project & Document;
 
-@Schema({ 
+@Schema({
   timestamps: true,
-  collection: 'projects'
+  collection: 'projects',
 })
 export class Project {
   @Prop({ required: true, trim: true, maxlength: 100 })
@@ -20,12 +20,12 @@ export class Project {
   @Prop({ default: true })
   isActive: boolean;
 
-  @Prop({ 
+  @Prop({
     type: {
       daily: { type: Number, default: 1000 },
       monthly: { type: Number, default: 10000 },
     },
-    default: { daily: 1000, monthly: 10000 }
+    default: { daily: 1000, monthly: 10000 },
   })
   limits: {
     daily: number;
@@ -38,7 +38,7 @@ export class Project {
       delivered: { type: Number, default: 0 },
       failed: { type: Number, default: 0 },
     },
-    default: { sent: 0, delivered: 0, failed: 0 }
+    default: { sent: 0, delivered: 0, failed: 0 },
   })
   stats: {
     sent: number;
@@ -46,12 +46,17 @@ export class Project {
     failed: number;
   };
 
-  @Prop({ 
-    type: [{
-      url: { type: String, required: true },
-      events: { type: [String], default: ['notification.sent', 'notification.delivered'] }
-    }],
-    default: []
+  @Prop({
+    type: [
+      {
+        url: { type: String, required: true },
+        events: {
+          type: [String],
+          default: ['notification.sent', 'notification.delivered'],
+        },
+      },
+    ],
+    default: [],
   })
   webhooks: Array<{
     url: string;

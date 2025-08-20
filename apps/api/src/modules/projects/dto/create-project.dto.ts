@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsObject, MaxLength, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreateProjectDto {
   @IsString()

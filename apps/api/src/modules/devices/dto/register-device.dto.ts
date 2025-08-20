@@ -1,4 +1,11 @@
-import { IsString, IsEnum, IsOptional, IsArray, IsObject, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  IsObject,
+  MinLength,
+} from 'class-validator';
 import { Platform } from '../schemas/device.schema';
 
 export class RegisterDeviceDto {
@@ -6,8 +13,9 @@ export class RegisterDeviceDto {
   @MinLength(1)
   token: string;
 
+  @IsOptional()
   @IsEnum(Platform)
-  platform: Platform;
+  platform?: Platform;
 
   @IsOptional()
   @IsString()

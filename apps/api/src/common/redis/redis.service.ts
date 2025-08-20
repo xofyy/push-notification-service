@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from '@upstash/redis';
 import IORedis from 'ioredis';
@@ -37,9 +42,17 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      // Fallback to local Redis if Upstash fails
+      // Only attempt local Redis if Upstash connection failed
       if (!this.useUpstash) {
         const localUrl = this.configService.get('redis.local.url');
+        
+        // Skip local Redis if it's the default localhost URL and we don't have a local server
+        if (localUrl === 'redis://localhost:6379') {
+          this.logger.log('📝 Skipping local Redis connection (localhost not available)');
+          this.logger.log('📝 Redis is optional - continuing without local cache');
+          return;
+        }
+        
         this.ioredisClient = new IORedis(localUrl, {
           maxRetriesPerRequest: 3,
           lazyConnect: true,
@@ -50,7 +63,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           await this.ioredisClient.ping();
           this.logger.log('✅ Connected to local Redis successfully');
         } catch (error) {
-          this.logger.warn(`⚠️ Local Redis connection failed: ${error.message}`);
+          this.logger.warn(
+            `⚠️ Local Redis connection failed: ${error.message}`,
+          );
           this.logger.log('📝 Redis is optional - continuing without cache');
           this.ioredisClient = null;
         }
@@ -142,8 +157,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return {
       connected: this.useUpstash ? !!this.upstashClient : !!this.ioredisClient,
       type: this.useUpstash ? 'upstash' : this.ioredisClient ? 'local' : 'none',
-      url: this.useUpstash 
-        ? this.configService.get('redis.upstash.url') 
+      url: this.useUpstash
+        ? this.configService.get('redis.upstash.url')
         : this.configService.get('redis.local.url'),
     };
   }

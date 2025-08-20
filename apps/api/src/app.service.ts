@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { RedisService } from './common/redis';
+import { FCMService } from './providers/fcm';
+import { APNsService } from './providers/apns';
+import { WebPushService } from './providers/webpush';
+import { NotificationService } from './providers/notification';
 
 @Injectable()
 export class AppService {
@@ -10,6 +14,10 @@ export class AppService {
     private configService: ConfigService,
     @InjectConnection() private connection: Connection,
     private redisService: RedisService,
+    private fcmService: FCMService,
+    private apnsService: APNsService,
+    private webPushService: WebPushService,
+    private notificationService: NotificationService,
   ) {}
 
   async getHealth() {
@@ -23,6 +31,10 @@ export class AppService {
 
     const redisInfo = this.redisService.getConnectionInfo();
     const redisConnected = await this.redisService.ping();
+    const fcmStatus = this.fcmService.getStatus();
+    const apnsStatus = this.apnsService.getStatus();
+    const webPushStatus = this.webPushService.getStatus();
+    const notificationStatus = this.notificationService.getServiceStatus();
 
     const overallStatus = dbStatus === 1 && redisConnected ? 'ok' : 'degraded';
 
@@ -41,6 +53,27 @@ export class AppService {
         status: redisConnected ? 'connected' : 'disconnected',
         type: redisInfo.type,
         connected: redisInfo.connected,
+      },
+      pushProviders: {
+        fcm: {
+          available: fcmStatus.available,
+          projectId: fcmStatus.projectId,
+        },
+        apns: {
+          available: apnsStatus.available,
+          production: apnsStatus.production,
+          topic: apnsStatus.topic,
+        },
+        webPush: {
+          available: webPushStatus.available,
+          publicKey: webPushStatus.publicKey,
+          subject: webPushStatus.subject,
+          canGenerateKeys: webPushStatus.canGenerateKeys,
+        },
+        unified: {
+          available: notificationStatus.available,
+          availablePlatforms: notificationStatus.availablePlatforms,
+        },
       },
       features: {
         webhooks: this.configService.get('features.webhooks'),

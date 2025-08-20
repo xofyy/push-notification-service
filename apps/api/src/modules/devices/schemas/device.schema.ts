@@ -9,9 +9,9 @@ export enum Platform {
   WEB = 'web',
 }
 
-@Schema({ 
+@Schema({
   timestamps: true,
-  collection: 'devices'
+  collection: 'devices',
 })
 export class Device {
   @Prop({ required: true, ref: 'Project' })
@@ -38,7 +38,7 @@ export class Device {
   @Prop({ type: Object, default: {} })
   properties: Record<string, any>;
 
-  @Prop({ 
+  @Prop({
     type: {
       language: String,
       country: String,
@@ -47,7 +47,7 @@ export class Device {
       deviceModel: String,
       osVersion: String,
     },
-    default: {}
+    default: {},
   })
   metadata: {
     language?: string;

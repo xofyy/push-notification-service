@@ -1,9 +1,11 @@
 export default () => ({
   port: parseInt(process.env.PORT || '3000', 10),
   environment: process.env.NODE_ENV || 'development',
-  
+
   cors: {
-    allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:3000',
+    ],
   },
 
   database: {

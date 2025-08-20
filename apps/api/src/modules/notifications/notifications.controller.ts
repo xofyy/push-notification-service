@@ -11,7 +11,10 @@ import {
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
-import { NotificationStatus, NotificationType } from './schemas/notification.schema';
+import {
+  NotificationStatus,
+  NotificationType,
+} from './schemas/notification.schema';
 
 @Controller('projects/:projectId/notifications')
 export class NotificationsController {
@@ -35,7 +38,7 @@ export class NotificationsController {
     @Query('skip') skip?: string,
   ) {
     const filters: any = {};
-    
+
     if (status) filters.status = status;
     if (type) filters.type = type;
     if (limit) filters.limit = parseInt(limit, 10);

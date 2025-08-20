@@ -1,48 +1,110 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Notification, NotificationDocument, NotificationStatus, NotificationType } from './schemas/notification.schema';
+import {
+  Notification,
+  NotificationDocument,
+  NotificationStatus,
+  NotificationType,
+} from './schemas/notification.schema';
 import { SendNotificationDto } from './dto/send-notification.dto';
+import { TemplatesService } from '../templates/templates.service';
 
 @Injectable()
 export class NotificationsService {
   constructor(
-    @InjectModel(Notification.name) private notificationModel: Model<NotificationDocument>,
+    @InjectModel(Notification.name)
+    private notificationModel: Model<NotificationDocument>,
+    private templatesService: TemplatesService,
   ) {}
 
-  async send(projectId: string, sendNotificationDto: SendNotificationDto): Promise<Notification> {
+  async send(
+    projectId: string,
+    sendNotificationDto: SendNotificationDto,
+  ): Promise<Notification> {
     // Validate targeting
-    const hasTargeting = 
+    const hasTargeting =
       sendNotificationDto.targetDevices?.length ||
       sendNotificationDto.targetTags?.length ||
       sendNotificationDto.targetTopics?.length ||
       sendNotificationDto.targetQuery;
 
     if (!hasTargeting) {
-      throw new BadRequestException('At least one targeting method must be specified');
+      throw new BadRequestException(
+        'At least one targeting method must be specified',
+      );
+    }
+
+    // Process template if provided
+    let processedNotification = { ...sendNotificationDto };
+    if (sendNotificationDto.templateId && sendNotificationDto.templateVariables) {
+      try {
+        const renderedTemplate = await this.templatesService.render(projectId, {
+          template: sendNotificationDto.templateId,
+          variables: sendNotificationDto.templateVariables,
+        });
+        
+        processedNotification = {
+          ...sendNotificationDto,
+          title: renderedTemplate.title,
+          body: renderedTemplate.body,
+          imageUrl: renderedTemplate.imageUrl || sendNotificationDto.imageUrl,
+          data: { ...renderedTemplate.data, ...sendNotificationDto.data },
+        };
+      } catch (error) {
+        throw new BadRequestException(`Template rendering failed: ${error.message}`);
+      }
+    } else if (sendNotificationDto.templateId) {
+      throw new BadRequestException('Template variables are required when using a template');
     }
 
     // Validate scheduling
-    if (sendNotificationDto.type === NotificationType.SCHEDULED && !sendNotificationDto.scheduledFor) {
-      throw new BadRequestException('Scheduled notifications must have a scheduledFor date');
+    if (
+      processedNotification.type === NotificationType.SCHEDULED &&
+      !processedNotification.scheduledFor
+    ) {
+      throw new BadRequestException(
+        'Scheduled notifications must have a scheduledFor date',
+      );
     }
 
-    if (sendNotificationDto.type === NotificationType.RECURRING && !sendNotificationDto.recurring) {
-      throw new BadRequestException('Recurring notifications must have recurring configuration');
+    if (
+      processedNotification.type === NotificationType.RECURRING &&
+      !processedNotification.recurring
+    ) {
+      throw new BadRequestException(
+        'Recurring notifications must have recurring configuration',
+      );
     }
 
     // Create notification
     const notification = new this.notificationModel({
       projectId: new Types.ObjectId(projectId),
-      ...sendNotificationDto,
-      targetDevices: sendNotificationDto.targetDevices?.map(id => new Types.ObjectId(id)),
-      templateId: sendNotificationDto.templateId ? new Types.ObjectId(sendNotificationDto.templateId) : undefined,
-      scheduledFor: sendNotificationDto.scheduledFor ? new Date(sendNotificationDto.scheduledFor) : undefined,
-      expiresAt: sendNotificationDto.expiresAt ? new Date(sendNotificationDto.expiresAt) : undefined,
-      recurring: sendNotificationDto.recurring ? {
-        ...sendNotificationDto.recurring,
-        endDate: sendNotificationDto.recurring.endDate ? new Date(sendNotificationDto.recurring.endDate) : undefined,
-      } : undefined,
+      ...processedNotification,
+      targetDevices: processedNotification.targetDevices?.map(
+        (id) => new Types.ObjectId(id),
+      ),
+      templateId: processedNotification.templateId
+        ? new Types.ObjectId(processedNotification.templateId)
+        : undefined,
+      scheduledFor: processedNotification.scheduledFor
+        ? new Date(processedNotification.scheduledFor)
+        : undefined,
+      expiresAt: processedNotification.expiresAt
+        ? new Date(processedNotification.expiresAt)
+        : undefined,
+      recurring: processedNotification.recurring
+        ? {
+            ...processedNotification.recurring,
+            endDate: processedNotification.recurring.endDate
+              ? new Date(processedNotification.recurring.endDate)
+              : undefined,
+          }
+        : undefined,
     });
 
     const savedNotification = await notification.save();
@@ -79,7 +141,10 @@ export class NotificationsService {
     return { notifications, total };
   }
 
-  async findOne(projectId: string, notificationId: string): Promise<Notification> {
+  async findOne(
+    projectId: string,
+    notificationId: string,
+  ): Promise<Notification> {
     const notification = await this.notificationModel
       .findOne({
         _id: notificationId,
@@ -87,38 +152,45 @@ export class NotificationsService {
       })
       .select('-__v')
       .exec();
-      
+
     if (!notification) {
       throw new NotFoundException('Notification not found');
     }
-    
+
     return notification;
   }
 
-  async cancel(projectId: string, notificationId: string): Promise<Notification> {
+  async cancel(
+    projectId: string,
+    notificationId: string,
+  ): Promise<Notification> {
     const notification = await this.notificationModel
       .findOneAndUpdate(
-        { 
-          _id: notificationId, 
+        {
+          _id: notificationId,
           projectId: new Types.ObjectId(projectId),
-          status: { $in: [NotificationStatus.PENDING, NotificationStatus.PROCESSING] }
+          status: {
+            $in: [NotificationStatus.PENDING, NotificationStatus.PROCESSING],
+          },
         },
-        { 
+        {
           status: NotificationStatus.CANCELLED,
           completedAt: new Date(),
         },
-        { new: true }
+        { new: true },
       )
       .select('-__v')
       .exec();
-      
+
     if (!notification) {
-      throw new NotFoundException('Notification not found or cannot be cancelled');
+      throw new NotFoundException(
+        'Notification not found or cannot be cancelled',
+      );
     }
 
     // TODO: Remove from queue if pending
     // await this.queueService.removeNotificationJob(notificationId);
-    
+
     return notification;
   }
 
@@ -133,7 +205,13 @@ export class NotificationsService {
       updateData.processedAt = new Date();
     } else if (status === NotificationStatus.SENT) {
       updateData.sentAt = new Date();
-    } else if ([NotificationStatus.DELIVERED, NotificationStatus.FAILED, NotificationStatus.CANCELLED].includes(status)) {
+    } else if (
+      [
+        NotificationStatus.DELIVERED,
+        NotificationStatus.FAILED,
+        NotificationStatus.CANCELLED,
+      ].includes(status)
+    ) {
       updateData.completedAt = new Date();
     }
 
@@ -172,12 +250,17 @@ export class NotificationsService {
 
   async incrementStats(
     notificationId: string,
-    stat: 'sentCount' | 'deliveredCount' | 'failedCount' | 'openedCount' | 'clickedCount',
+    stat:
+      | 'sentCount'
+      | 'deliveredCount'
+      | 'failedCount'
+      | 'openedCount'
+      | 'clickedCount',
     count = 1,
   ): Promise<void> {
     await this.notificationModel
-      .findByIdAndUpdate(notificationId, { 
-        $inc: { [stat]: count } 
+      .findByIdAndUpdate(notificationId, {
+        $inc: { [stat]: count },
       })
       .exec();
   }
@@ -187,11 +270,11 @@ export class NotificationsService {
     startDate.setDate(startDate.getDate() - days);
 
     const stats = await this.notificationModel.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           projectId: new Types.ObjectId(projectId),
-          createdAt: { $gte: startDate }
-        } 
+          createdAt: { $gte: startDate },
+        },
       },
       {
         $group: {
@@ -205,35 +288,37 @@ export class NotificationsService {
           byStatus: {
             $push: {
               status: '$status',
-              count: 1
-            }
+              count: 1,
+            },
           },
           byType: {
             $push: {
               type: '$type',
-              count: 1
-            }
-          }
-        }
-      }
+              count: 1,
+            },
+          },
+        },
+      },
     ]);
 
-    return stats[0] || { 
-      total: 0, 
-      sent: 0, 
-      delivered: 0, 
-      failed: 0, 
-      opened: 0, 
-      clicked: 0,
-      byStatus: {},
-      byType: {}
-    };
+    return (
+      stats[0] || {
+        total: 0,
+        sent: 0,
+        delivered: 0,
+        failed: 0,
+        opened: 0,
+        clicked: 0,
+        byStatus: {},
+        byType: {},
+      }
+    );
   }
 
   async addError(notificationId: string, error: string): Promise<void> {
     await this.notificationModel
-      .findByIdAndUpdate(notificationId, { 
-        $push: { errors: error } 
+      .findByIdAndUpdate(notificationId, {
+        $push: { errors: error },
       })
       .exec();
   }
@@ -245,10 +330,7 @@ export class NotificationsService {
       scheduledFor: { $lte: beforeDate || new Date() },
     };
 
-    return this.notificationModel
-      .find(query)
-      .select('-__v')
-      .exec();
+    return this.notificationModel.find(query).select('-__v').exec();
   }
 
   async getRecurringNotifications(): Promise<Notification[]> {
@@ -258,8 +340,8 @@ export class NotificationsService {
         status: { $ne: NotificationStatus.CANCELLED },
         $or: [
           { 'recurring.endDate': { $exists: false } },
-          { 'recurring.endDate': { $gte: new Date() } }
-        ]
+          { 'recurring.endDate': { $gte: new Date() } },
+        ],
       })
       .select('-__v')
       .exec();

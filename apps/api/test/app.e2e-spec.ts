@@ -14,13 +14,15 @@ describe('Push Notification Service (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     app.setGlobalPrefix('api/v1');
-    
+
     await app.init();
   });
 
@@ -49,7 +51,7 @@ describe('Push Notification Service (e2e)', () => {
         .post('/api/v1/projects')
         .send({
           name: 'Test Project E2E',
-          description: 'Integration test project'
+          description: 'Integration test project',
         })
         .expect(201)
         .expect((res) => {
@@ -68,7 +70,9 @@ describe('Push Notification Service (e2e)', () => {
         .expect((res) => {
           expect(Array.isArray(res.body)).toBe(true);
           expect(res.body.length).toBeGreaterThan(0);
-          const testProject = res.body.find(p => p.name === 'Test Project E2E');
+          const testProject = res.body.find(
+            (p) => p.name === 'Test Project E2E',
+          );
           expect(testProject).toBeDefined();
         });
     });
@@ -93,8 +97,8 @@ describe('Push Notification Service (e2e)', () => {
           platform: 'android',
           metadata: {
             osVersion: 'Android 13',
-            appVersion: '1.0.0-test'
-          }
+            appVersion: '1.0.0-test',
+          },
         })
         .expect(201)
         .expect((res) => {
@@ -113,7 +117,9 @@ describe('Push Notification Service (e2e)', () => {
         .expect((res) => {
           expect(Array.isArray(res.body)).toBe(true);
           expect(res.body.length).toBeGreaterThan(0);
-          const testDevice = res.body.find(d => d.token === 'test_e2e_device_token');
+          const testDevice = res.body.find(
+            (d) => d.token === 'test_e2e_device_token',
+          );
           expect(testDevice).toBeDefined();
         });
     });
@@ -139,7 +145,7 @@ describe('Push Notification Service (e2e)', () => {
           title: 'E2E Test Notification',
           body: 'This is an integration test notification',
           type: 'instant',
-          targetDevices: [deviceId]
+          targetDevices: [deviceId],
         })
         .expect(201)
         .expect((res) => {

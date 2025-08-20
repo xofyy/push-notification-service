@@ -35,7 +35,9 @@ export const envValidationSchema = Joi.object({
   VAPID_SUBJECT: Joi.string().optional(),
 
   // Security
-  JWT_SECRET: Joi.string().min(32).default('your-super-secret-jwt-key-here-change-in-production'),
+  JWT_SECRET: Joi.string()
+    .min(32)
+    .default('your-super-secret-jwt-key-here-change-in-production'),
   API_RATE_LIMIT: Joi.number().default(100),
 
   // Feature Flags
