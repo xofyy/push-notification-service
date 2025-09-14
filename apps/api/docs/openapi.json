@@ -18,10 +18,14 @@
         ],
         "requestBody": {
           "required": true,
+          "description": "Project payload",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateProjectDto"
+                "example": {
+                  "name": "My Mobile App",
+                  "description": "Push notifications for my mobile application"
+                }
               }
             }
           }
@@ -397,10 +401,23 @@
         ],
         "requestBody": {
           "required": true,
+          "description": "Device registration payload",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterDeviceDto"
+                "example": {
+                  "token": "fcm_token_here_1234567890",
+                  "platform": "android",
+                  "userId": "user123",
+                  "tags": [
+                    "test",
+                    "beta"
+                  ],
+                  "properties": {
+                    "appVersion": "1.0.0",
+                    "deviceModel": "Pixel 7"
+                  }
+                }
               }
             }
           }
@@ -1154,8 +1171,15 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": ""
+          "404": {
+            "description": "Device not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1207,8 +1231,15 @@
           }
         },
         "responses": {
-          "200": {
-            "description": ""
+          "404": {
+            "description": "Device not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1250,8 +1281,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": ""
+          "404": {
+            "description": "Device not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1622,10 +1660,36 @@
         ],
         "requestBody": {
           "required": true,
+          "description": "Send payload (examples for instant and scheduled)",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendNotificationDto"
+                "type": "string"
+              },
+              "examples": {
+                "instant": {
+                  "summary": "Instant send to deviceId",
+                  "value": {
+                    "title": "Hello from API",
+                    "body": "Quick flow test",
+                    "type": "instant",
+                    "targetDevices": [
+                      "64f1a2b3c4d5e6f7a8b9c0ff"
+                    ]
+                  }
+                },
+                "scheduled": {
+                  "summary": "Scheduled send to tag segment",
+                  "value": {
+                    "title": "Scheduled promo",
+                    "body": "Sale starts soon",
+                    "type": "scheduled",
+                    "scheduledFor": "2025-12-31T23:50:00.000Z",
+                    "targetTags": [
+                      "promo"
+                    ]
+                  }
+                }
               }
             }
           }
@@ -2159,7 +2223,14 @@
             "description": "Template retrieved successfully"
           },
           "404": {
-            "description": "Template not found"
+            "description": "Template not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Get a specific template by ID",
@@ -2242,7 +2313,14 @@
             "description": "Template deleted successfully"
           },
           "404": {
-            "description": "Template not found"
+            "description": "Template not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Delete a template",
@@ -2279,7 +2357,14 @@
             "description": "Template retrieved successfully"
           },
           "404": {
-            "description": "Template not found"
+            "description": "Template not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Get a specific template by name",
@@ -2597,10 +2682,18 @@
         ],
         "requestBody": {
           "required": true,
+          "description": "Event payload",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TrackEventDto"
+                "example": {
+                  "type": "notification.sent",
+                  "notificationId": "64f1a2b3c4d5e6f7a8b9c0ff",
+                  "deviceId": "64f1a2b3c4d5e6f7a8b9c0aa",
+                  "data": {
+                    "platform": "android"
+                  }
+                }
               }
             }
           }
@@ -2665,10 +2758,29 @@
         ],
         "requestBody": {
           "required": true,
+          "description": "Batch payload",
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TrackBatchEventsDto"
+                "example": {
+                  "batchId": "batch-123",
+                  "events": [
+                    {
+                      "type": "notification.sent",
+                      "notificationId": "...",
+                      "data": {
+                        "platform": "ios"
+                      }
+                    },
+                    {
+                      "type": "notification.failed",
+                      "notificationId": "...",
+                      "data": {
+                        "error": "invalid token"
+                      }
+                    }
+                  ]
+                }
               }
             }
           }
@@ -3204,6 +3316,72 @@
           "Webhooks"
         ]
       }
+    },
+    "/api/v1/projects/{projectId}/webhooks/secret/rotate": {
+      "post": {
+        "operationId": "rotateSecret",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Rotate webhook signing secret",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/webhooks/deliveries": {
+      "get": {
+        "operationId": "listDeliveries",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List webhook delivery logs (paginated)",
+        "tags": [
+          "Webhooks"
+        ]
+      }
     }
   },
   "info": {
@@ -3274,10 +3452,6 @@
       }
     },
     "schemas": {
-      "CreateProjectDto": {
-        "type": "object",
-        "properties": {}
-      },
       "ErrorResponseDto": {
         "type": "object",
         "properties": {
@@ -3317,11 +3491,11 @@
         "type": "object",
         "properties": {}
       },
-      "RegisterDeviceDto": {
+      "Device": {
         "type": "object",
         "properties": {}
       },
-      "Device": {
+      "RegisterDeviceDto": {
         "type": "object",
         "properties": {}
       },
@@ -3332,161 +3506,6 @@
       "UpdateDeviceDto": {
         "type": "object",
         "properties": {}
-      },
-      "RecurringConfigDto": {
-        "type": "object",
-        "properties": {
-          "pattern": {
-            "type": "string",
-            "description": "Cron pattern for recurring notifications",
-            "example": "0 9 * * MON-FRI"
-          },
-          "timezone": {
-            "type": "string",
-            "description": "Timezone for scheduling",
-            "example": "America/New_York"
-          },
-          "endDate": {
-            "type": "string",
-            "description": "End date for recurring notifications",
-            "example": "2024-12-31T23:59:59.000Z"
-          }
-        },
-        "required": [
-          "pattern",
-          "timezone"
-        ]
-      },
-      "SendNotificationDto": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "description": "Notification title",
-            "example": "Welcome to our app!",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "body": {
-            "type": "string",
-            "description": "Notification body/message",
-            "example": "Thanks for installing our app. Get started with these features!",
-            "minLength": 1,
-            "maxLength": 1000
-          },
-          "imageUrl": {
-            "type": "string",
-            "description": "Image URL for rich notifications",
-            "example": "https://example.com/images/welcome.jpg"
-          },
-          "actionUrl": {
-            "type": "string",
-            "description": "Action URL when notification is clicked",
-            "example": "https://example.com/welcome"
-          },
-          "data": {
-            "type": "object",
-            "description": "Custom data payload for the notification",
-            "example": {
-              "userId": "12345",
-              "campaignId": "welcome_series_1",
-              "customAction": "open_feature"
-            }
-          },
-          "type": {
-            "type": "string",
-            "description": "Notification type",
-            "enum": [
-              "instant",
-              "scheduled",
-              "recurring"
-            ],
-            "example": "instant"
-          },
-          "targetDevices": {
-            "description": "Array of specific device IDs to target",
-            "example": [
-              "device_123",
-              "device_456"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "targetTags": {
-            "description": "Array of tags to target devices",
-            "example": [
-              "premium",
-              "beta-tester",
-              "ios"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "targetTopics": {
-            "description": "Array of topics to target",
-            "example": [
-              "news",
-              "promotions"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "targetQuery": {
-            "type": "object",
-            "description": "Advanced query for targeting specific user segments",
-            "example": {
-              "platform": "android",
-              "appVersion": {
-                "$gte": "2.0.0"
-              },
-              "lastSeen": {
-                "$gte": "2023-12-01"
-              }
-            }
-          },
-          "scheduledFor": {
-            "type": "string",
-            "description": "Schedule notification for future delivery",
-            "example": "2023-12-08T09:00:00.000Z"
-          },
-          "expiresAt": {
-            "type": "string",
-            "description": "Expiration time for the notification",
-            "example": "2023-12-08T18:00:00.000Z"
-          },
-          "recurring": {
-            "description": "Configuration for recurring notifications",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/RecurringConfigDto"
-              }
-            ]
-          },
-          "templateId": {
-            "type": "string",
-            "description": "Template ID for template-based notifications",
-            "example": "64f1a2b3c4d5e6f7a8b9c0d4"
-          },
-          "templateVariables": {
-            "type": "object",
-            "description": "Variables for template substitution",
-            "example": {
-              "userName": "John Doe",
-              "productName": "Premium Plan",
-              "discountAmount": "20%"
-            }
-          }
-        },
-        "required": [
-          "title",
-          "body"
-        ]
       },
       "Notification": {
         "type": "object",
@@ -3734,14 +3753,6 @@
             "description": "Updated by user ID"
           }
         }
-      },
-      "TrackEventDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "TrackBatchEventsDto": {
-        "type": "object",
-        "properties": {}
       }
     }
   }

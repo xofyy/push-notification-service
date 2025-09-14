@@ -4,6 +4,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { DevicesModule } from '../../modules/devices/devices.module';
 import { AnalyticsModule } from '../../modules/analytics/analytics.module';
 import { WebhooksModule } from '../../modules/webhooks/webhooks.module';
+import { MongooseModule } from '@nestjs/mongoose';
+import { WebhookDelivery, WebhookDeliverySchema } from '../../modules/webhooks/schemas/webhook-delivery.schema';
 import { QueueService } from './queue.service';
 import { NotificationProcessor } from './processors/notification.processor';
 import { ScheduledNotificationProcessor } from './processors/scheduled-notification.processor';
@@ -29,6 +31,9 @@ export class QueueModule {
       DevicesModule,
       AnalyticsModule,
       WebhooksModule,
+      MongooseModule.forFeature([
+        { name: WebhookDelivery.name, schema: WebhookDeliverySchema },
+      ]),
     ];
 
     if (enableQueues) {
