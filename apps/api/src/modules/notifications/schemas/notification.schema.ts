@@ -24,13 +24,13 @@ export enum NotificationType {
 })
 export class Notification {
   @Prop({ required: true, ref: 'Project' })
-  projectId: Types.ObjectId;
+  projectId!: Types.ObjectId;
 
   @Prop({ required: true })
-  title: string;
+  title!: string;
 
   @Prop({ required: true })
-  body: string;
+  body!: string;
 
   @Prop()
   imageUrl?: string;
@@ -39,31 +39,31 @@ export class Notification {
   actionUrl?: string;
 
   @Prop({ type: Object, default: {} })
-  data: Record<string, any>;
+  data!: Record<string, any>;
 
   @Prop({
     required: true,
     enum: NotificationType,
     default: NotificationType.INSTANT,
   })
-  type: NotificationType;
+  type!: NotificationType;
 
   @Prop({
     required: true,
     enum: NotificationStatus,
     default: NotificationStatus.PENDING,
   })
-  status: NotificationStatus;
+  status!: NotificationStatus;
 
   // Targeting
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Device' }], default: [] })
-  targetDevices: Types.ObjectId[];
+  targetDevices!: Types.ObjectId[];
 
   @Prop({ type: [String], default: [] })
-  targetTags: string[];
+  targetTags!: string[];
 
   @Prop({ type: [String], default: [] })
-  targetTopics: string[];
+  targetTopics!: string[];
 
   @Prop({ type: Object })
   targetQuery?: Record<string, any>;
@@ -90,22 +90,22 @@ export class Notification {
 
   // Statistics
   @Prop({ default: 0 })
-  targetCount: number;
+  targetCount!: number;
 
   @Prop({ default: 0 })
-  sentCount: number;
+  sentCount!: number;
 
   @Prop({ default: 0 })
-  deliveredCount: number;
+  deliveredCount!: number;
 
   @Prop({ default: 0 })
-  failedCount: number;
+  failedCount!: number;
 
   @Prop({ default: 0 })
-  openedCount: number;
+  openedCount!: number;
 
   @Prop({ default: 0 })
-  clickedCount: number;
+  clickedCount!: number;
 
   // Processing metadata
   @Prop()
@@ -118,10 +118,10 @@ export class Notification {
   completedAt?: Date;
 
   @Prop({ type: [String], default: [] })
-  errors: string[];
+  errors!: string[];
 
   @Prop({ type: Object, default: {} })
-  metadata: Record<string, any>;
+  metadata!: Record<string, any>;
 
   // Template reference
   @Prop({ ref: 'Template' })

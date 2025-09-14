@@ -31,19 +31,19 @@ export enum PropertyOperator {
 
 export class PropertyFilter {
   @IsString()
-  property: string;
+  property!: string;
 
   @IsEnum(PropertyOperator)
-  operator: PropertyOperator;
+  operator!: PropertyOperator;
 
   @IsOptional()
-  value?: any;
+  value?: unknown;
 }
 
 export class TagFilter {
   @IsArray()
   @IsString({ each: true })
-  tags: string[];
+  tags!: string[];
 
   @IsOptional()
   @IsEnum(SegmentOperator)
@@ -53,7 +53,7 @@ export class TagFilter {
 export class PlatformFilter {
   @IsArray()
   @IsEnum(Platform, { each: true })
-  platforms: Platform[];
+  platforms!: Platform[];
 }
 
 export class ActivityFilter {

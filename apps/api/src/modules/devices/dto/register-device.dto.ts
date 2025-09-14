@@ -11,7 +11,7 @@ import { Platform } from '../schemas/device.schema';
 export class RegisterDeviceDto {
   @IsString()
   @MinLength(1)
-  token: string;
+  token!: string;
 
   @IsOptional()
   @IsEnum(Platform)
@@ -33,7 +33,7 @@ export class RegisterDeviceDto {
 
   @IsOptional()
   @IsObject()
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
 
   @IsOptional()
   @IsObject()

@@ -93,7 +93,8 @@ export class FCMService implements OnModuleInit {
 
       this.logger.log('✅ FCM service initialized successfully');
     } catch (error) {
-      this.logger.error('❌ Failed to initialize FCM service:', error.message);
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      this.logger.error('❌ Failed to initialize FCM service:', errorObj.message);
       // Don't throw error - just mark as not initialized
       this.isInitialized = false;
     }
@@ -199,14 +200,15 @@ export class FCMService implements OnModuleInit {
             messageId: result.value.messageId,
           };
         } else {
-          const errorCode = result.reason?.code;
+          const reason = result.reason as { code?: string; message?: string } | undefined;
+          const errorCode = reason?.code;
           const shouldRetry = this.shouldRetryError(errorCode);
           const invalidToken = this.isInvalidTokenError(errorCode);
 
           return {
             token,
             success: false,
-            error: result.reason?.message || 'Unknown error',
+            error: reason?.message || 'Unknown error',
             shouldRetry,
             invalidToken,
           };
@@ -238,8 +240,10 @@ export class FCMService implements OnModuleInit {
 
       return sendResult;
     } catch (error) {
-      this.logger.error('FCM send error:', error.message);
-      throw error;
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error('FCM send error:', errorObj.message);
+      throw errorObj;
     }
   }
 
@@ -287,8 +291,10 @@ export class FCMService implements OnModuleInit {
       await this.messaging.send(topicMessage, dryRun);
       this.logger.log(`FCM topic message sent to: ${topic}`);
     } catch (error) {
-      this.logger.error(`FCM topic send error for ${topic}:`, error.message);
-      throw error;
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`FCM topic send error for ${topic}:`, errorObj.message);
+      throw errorObj;
     }
   }
 
@@ -301,11 +307,13 @@ export class FCMService implements OnModuleInit {
       await this.messaging.subscribeToTopic(tokens, topic);
       this.logger.log(`Subscribed ${tokens.length} tokens to topic: ${topic}`);
     } catch (error) {
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.error(
         `FCM topic subscription error for ${topic}:`,
-        error.message,
+        errorObj.message,
       );
-      throw error;
+      throw errorObj;
     }
   }
 
@@ -320,11 +328,13 @@ export class FCMService implements OnModuleInit {
         `Unsubscribed ${tokens.length} tokens from topic: ${topic}`,
       );
     } catch (error) {
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.error(
         `FCM topic unsubscription error for ${topic}:`,
-        error.message,
+        errorObj.message,
       );
-      throw error;
+      throw errorObj;
     }
   }
 

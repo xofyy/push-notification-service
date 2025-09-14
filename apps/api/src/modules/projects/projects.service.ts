@@ -28,7 +28,8 @@ export class ProjectsService {
 
       return await project.save();
     } catch (error) {
-      if (error.code === 11000) {
+      const errorObj = error;
+      if (errorObj.code === 11000) {
         throw new ConflictException('Project with this name already exists');
       }
       throw error;

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type ProjectDocument = Project & Document;
 
@@ -8,17 +8,19 @@ export type ProjectDocument = Project & Document;
   collection: 'projects',
 })
 export class Project {
+  _id!: Types.ObjectId;
+
   @Prop({ required: true, trim: true, maxlength: 100 })
-  name: string;
+  name!: string;
 
   @Prop({ trim: true, maxlength: 500 })
   description?: string;
 
   @Prop({ required: true, unique: true })
-  apiKey: string;
+  apiKey!: string;
 
   @Prop({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Prop({
     type: {
@@ -27,7 +29,7 @@ export class Project {
     },
     default: { daily: 1000, monthly: 10000 },
   })
-  limits: {
+  limits!: {
     daily: number;
     monthly: number;
   };
@@ -40,7 +42,7 @@ export class Project {
     },
     default: { sent: 0, delivered: 0, failed: 0 },
   })
-  stats: {
+  stats!: {
     sent: number;
     delivered: number;
     failed: number;
@@ -58,13 +60,13 @@ export class Project {
     ],
     default: [],
   })
-  webhooks: Array<{
+  webhooks!: Array<{
     url: string;
     events: string[];
   }>;
 
   @Prop({ type: Object, default: {} })
-  settings: Record<string, any>;
+  settings!: Record<string, any>;
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);

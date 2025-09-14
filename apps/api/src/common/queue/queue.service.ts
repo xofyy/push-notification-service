@@ -68,18 +68,24 @@ export class QueueService {
   private readonly logger = new Logger(QueueService.name);
 
   constructor(
-    @Optional() @InjectQueue('notification-queue')
+    @Optional()
+    @InjectQueue('notification-queue')
     private notificationQueue: Queue<NotificationJobData> | null,
-    @Optional() @InjectQueue('scheduled-queue')
+    @Optional()
+    @InjectQueue('scheduled-queue')
     private scheduledQueue: Queue<ScheduledJobData> | null,
-    @Optional() @InjectQueue('batch-queue')
+    @Optional()
+    @InjectQueue('batch-queue')
     private batchQueue: Queue<BatchJobData> | null,
-    @Optional() @InjectQueue('recurring-queue')
+    @Optional()
+    @InjectQueue('recurring-queue')
     private recurringQueue: Queue<RecurringJobData> | null,
   ) {
     const isQueueEnabled = process.env.ENABLE_QUEUE_SYSTEM !== 'false';
     if (!isQueueEnabled) {
-      this.logger.log('📝 Queue system disabled - using direct processing mode');
+      this.logger.log(
+        '📝 Queue system disabled - using direct processing mode',
+      );
     }
   }
 
@@ -123,8 +129,10 @@ export class QueueService {
       `Adding notification job for project ${data.projectId} with priority ${jobOptions.priority}`,
     );
 
-    return this.notificationQueue!.add(JobType.NOTIFICATION, data, jobOptions);
+    return this.notificationQueue.add(JobType.NOTIFICATION, data, jobOptions);
   }
+
+
 
   /**
    * Add scheduled notification job
@@ -148,7 +156,7 @@ export class QueueService {
     }
 
     const delay = data.sendAt.getTime() - Date.now();
-    
+
     if (delay < 0) {
       throw new Error('Cannot schedule notification in the past');
     }
@@ -166,7 +174,7 @@ export class QueueService {
       `Adding scheduled job for project ${data.projectId} to run at ${data.sendAt}`,
     );
 
-    return this.scheduledQueue!.add(
+    return this.scheduledQueue.add(
       JobType.SCHEDULED_NOTIFICATION,
       data,
       jobOptions,
@@ -234,7 +242,10 @@ export class QueueService {
       priority: options.priority || QueuePriority.NORMAL,
       repeat:
         data.schedule.type === 'cron'
-          ? { pattern: data.schedule.value as string, tz: data.schedule.timezone }
+          ? {
+              pattern: data.schedule.value as string,
+              tz: data.schedule.timezone,
+            }
           : { every: data.schedule.value as number },
       jobId: options.jobId,
       removeOnComplete: 10,
@@ -250,7 +261,7 @@ export class QueueService {
       `Adding recurring job for project ${data.projectId} with schedule: ${JSON.stringify(data.schedule)}`,
     );
 
-    return this.recurringQueue!.add(
+    return this.recurringQueue.add(
       JobType.RECURRING_NOTIFICATION,
       data,
       jobOptions,
@@ -329,18 +340,18 @@ export class QueueService {
         delayed: delayed.length,
       },
       jobs: {
-        waiting: waiting.slice(0, 10).map(job => ({
+        waiting: waiting.slice(0, 10).map((job) => ({
           id: job.id,
           name: job.name,
           data: job.data,
           opts: job.opts,
         })),
-        active: active.slice(0, 10).map(job => ({
+        active: active.slice(0, 10).map((job) => ({
           id: job.id,
           name: job.name,
           progress: job.progress,
         })),
-        failed: failed.slice(0, 10).map(job => ({
+        failed: failed.slice(0, 10).map((job) => ({
           id: job.id,
           name: job.name,
           error: job.failedReason,
@@ -353,9 +364,14 @@ export class QueueService {
    * Get all queues statistics
    */
   async getAllQueuesStats() {
-    const queueNames = ['notification-queue', 'scheduled-queue', 'batch-queue', 'recurring-queue'];
+    const queueNames = [
+      'notification-queue',
+      'scheduled-queue',
+      'batch-queue',
+      'recurring-queue',
+    ];
     const stats = await Promise.all(
-      queueNames.map(name => this.getQueueStats(name))
+      queueNames.map((name) => this.getQueueStats(name)),
     );
     return stats;
   }
@@ -363,7 +379,10 @@ export class QueueService {
   /**
    * Clean completed jobs
    */
-  async cleanQueue(queueName: string, maxAge: number = 24 * 60 * 60 * 1000): Promise<string[]> {
+  async cleanQueue(
+    queueName: string,
+    maxAge: number = 24 * 60 * 60 * 1000,
+  ): Promise<string[]> {
     const queue = this.getQueueByName(queueName);
     if (!queue) {
       throw new Error(`Queue ${queueName} not found`);

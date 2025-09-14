@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -13,13 +15,18 @@ import {
 } from './schemas/notification.schema';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { TemplatesService } from '../templates/templates.service';
+import { QueueService, QueuePriority } from '../../common/queue/queue.service';
+import { NotificationService } from '../../providers/notification/notification.service';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
   constructor(
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
     private templatesService: TemplatesService,
+    @Optional() private readonly queueService?: QueueService,
+    @Optional() private readonly notificationService?: NotificationService,
   ) {}
 
   async send(
@@ -41,13 +48,16 @@ export class NotificationsService {
 
     // Process template if provided
     let processedNotification = { ...sendNotificationDto };
-    if (sendNotificationDto.templateId && sendNotificationDto.templateVariables) {
+    if (
+      sendNotificationDto.templateId &&
+      sendNotificationDto.templateVariables
+    ) {
       try {
         const renderedTemplate = await this.templatesService.render(projectId, {
           template: sendNotificationDto.templateId,
           variables: sendNotificationDto.templateVariables,
         });
-        
+
         processedNotification = {
           ...sendNotificationDto,
           title: renderedTemplate.title,
@@ -56,10 +66,16 @@ export class NotificationsService {
           data: { ...renderedTemplate.data, ...sendNotificationDto.data },
         };
       } catch (error) {
-        throw new BadRequestException(`Template rendering failed: ${error.message}`);
+        const errorObj =
+          error instanceof Error ? error : new Error(String(error));
+        throw new BadRequestException(
+          `Template rendering failed: ${errorObj.message}`,
+        );
       }
     } else if (sendNotificationDto.templateId) {
-      throw new BadRequestException('Template variables are required when using a template');
+      throw new BadRequestException(
+        'Template variables are required when using a template',
+      );
     }
 
     // Validate scheduling
@@ -109,8 +125,79 @@ export class NotificationsService {
 
     const savedNotification = await notification.save();
 
-    // TODO: Add to queue for processing
-    // await this.queueService.addNotificationJob(savedNotification._id);
+    // Enqueue or schedule based on type
+    try {
+      const type = processedNotification.type || NotificationType.INSTANT;
+      if (!this.queueService) {
+        this.logger.warn('QueueService not available; notification queued state may be pending.');
+        return savedNotification;
+      }
+
+      const baseJob = {
+        projectId,
+        payload: {
+          title: processedNotification.title,
+          body: processedNotification.body,
+          imageUrl: processedNotification.imageUrl,
+          data: processedNotification.data,
+        },
+        targeting: {
+          deviceIds: processedNotification.targetDevices,
+          segment: processedNotification.targetQuery,
+          topics: processedNotification.targetTopics,
+        },
+        options: {
+          trackDelivery: true,
+          metadata: {
+            notificationId: (savedNotification._id as any as Types.ObjectId).toString(),
+            templateId: processedNotification.templateId,
+          },
+        },
+      } as const;
+
+      if (type === NotificationType.INSTANT) {
+        await this.queueService.addNotificationJob(baseJob as any, {
+          priority: QueuePriority.NORMAL,
+        });
+      } else if (type === NotificationType.SCHEDULED && processedNotification.scheduledFor) {
+        // Prefer existing QueueService implementation if present
+        const svc: any = this.queueService as any;
+        if (typeof svc.addScheduledJob === 'function') {
+          await svc.addScheduledJob(
+            {
+              ...(baseJob as any),
+              sendAt: new Date(processedNotification.scheduledFor),
+              timezone: processedNotification.recurring?.timezone,
+            },
+            { priority: QueuePriority.NORMAL },
+          );
+        } else {
+          this.logger.warn('addScheduledJob not available on QueueService');
+        }
+      } else if (type === NotificationType.RECURRING && processedNotification.recurring) {
+        const schedule = processedNotification.recurring.pattern
+          ? { type: 'cron' as const, value: processedNotification.recurring.pattern, timezone: processedNotification.recurring.timezone }
+          : { type: 'interval' as const, value: 0 };
+        const svc: any = this.queueService as any;
+        if (typeof svc.addRecurringJob === 'function') {
+          await svc.addRecurringJob(
+            {
+              ...(baseJob as any),
+              schedule,
+              endDate: processedNotification.recurring.endDate
+                ? new Date(processedNotification.recurring.endDate)
+                : undefined,
+            },
+            { priority: QueuePriority.NORMAL },
+          );
+        } else {
+          this.logger.warn('addRecurringJob not available on QueueService');
+        }
+      }
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      this.logger.error('Failed to enqueue/schedule notification job:', err.message);
+    }
 
     return savedNotification;
   }

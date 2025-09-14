@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { FCMService } from '../fcm';
 import { APNsService } from '../apns';
 import { WebPushService } from '../webpush';
+import type { WebPushSubscription } from '../webpush/webpush.service';
 import {
   RetryService,
   ErrorClassifierService,
@@ -18,7 +19,7 @@ export enum PlatformType {
 export interface UnifiedNotificationPayload {
   title: string;
   body: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   imageUrl?: string;
   actions?: Array<{
     action: string;
@@ -37,7 +38,7 @@ export interface NotificationTarget {
   token?: string;
   tokens?: string[];
   topic?: string;
-  subscription?: any; // For web push subscriptions
+  subscription?: unknown; // For web push subscriptions
 }
 
 export interface UnifiedSendOptions {
@@ -243,7 +244,7 @@ export class NotificationService {
         payload: {
           title: payload.title,
           body: payload.body,
-          data: payload.data,
+          data: this.toStringRecord(payload.data),
           imageUrl: payload.imageUrl,
         },
         priority: payload.priority,
@@ -272,7 +273,7 @@ export class NotificationService {
           {
             title: payload.title,
             body: payload.body,
-            data: payload.data,
+            data: this.toStringRecord(payload.data),
             imageUrl: payload.imageUrl,
           },
           {
@@ -392,7 +393,7 @@ export class NotificationService {
     // Handle subscriptions
     const subscriptions = targets
       .map((t) => t.subscription)
-      .filter((sub) => Boolean(sub));
+      .filter((sub) => Boolean(sub)) as WebPushSubscription[];
 
     if (subscriptions.length > 0) {
       const result = await this.webPushService.sendToMultipleSubscriptions({
@@ -451,5 +452,14 @@ export class NotificationService {
       },
       availablePlatforms: this.getAvailablePlatforms(),
     };
+  }
+
+  private toStringRecord(input?: Record<string, unknown>): Record<string, string> | undefined {
+    if (!input) return undefined;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(input)) {
+      out[k] = v === undefined || v === null ? '' : String(v);
+    }
+    return out;
   }
 }

@@ -9,15 +9,14 @@ import { QueueService } from '../queue.service';
 export class ScheduledNotificationProcessor extends WorkerHost {
   private readonly logger = new Logger(ScheduledNotificationProcessor.name);
 
-  constructor(
-    private readonly queueService: QueueService,
-  ) {
+  constructor(private readonly queueService: QueueService) {
     super();
   }
 
   async process(job: Job<ScheduledJobData>): Promise<any> {
-    const { projectId, payload, targeting, options, sendAt, timezone } = job.data;
-    
+    const { projectId, payload, targeting, options, sendAt, timezone } =
+      job.data;
+
     this.logger.log(
       `Processing scheduled notification job ${job.id} for project ${projectId}, originally scheduled for ${sendAt}`,
     );
@@ -30,10 +29,10 @@ export class ScheduledNotificationProcessor extends WorkerHost {
       const now = new Date();
       const scheduledTime = new Date(sendAt);
       const timeDifference = Math.abs(now.getTime() - scheduledTime.getTime());
-      
+
       // Allow 5 minute tolerance for scheduled jobs
       const tolerance = 5 * 60 * 1000; // 5 minutes in milliseconds
-      
+
       if (timeDifference > tolerance) {
         this.logger.warn(
           `Scheduled job ${job.id} is running ${Math.round(timeDifference / 1000)}s off schedule. Scheduled: ${scheduledTime}, Current: ${now}`,
@@ -92,31 +91,37 @@ export class ScheduledNotificationProcessor extends WorkerHost {
         notificationJobId: notificationJob.id,
         timestamp: new Date(),
       };
-
     } catch (error) {
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        `Failed to process scheduled notification job ${job.id}: ${error.message}`,
-        error.stack,
+        `Failed to process scheduled notification job ${job.id}: ${errorObj.message}`,
+        errorObj.stack,
       );
 
       // Store failure information for analysis
-      await this.recordScheduledJobFailure(job.id!, projectId, error, sendAt);
+      await this.recordScheduledJobFailure(
+        job.id!,
+        projectId,
+        errorObj,
+        sendAt,
+      );
 
-      throw error;
+      throw errorObj;
     }
   }
 
   private async recordScheduledJobFailure(
     jobId: string,
-    projectId: string, 
-    error: any,
+    projectId: string,
+    error: Error,
     originalScheduledTime: Date,
   ): Promise<void> {
     // Record failure for analytics and debugging
     this.logger.error(
       `Scheduled job failure recorded: Job ${jobId}, Project ${projectId}, Scheduled ${originalScheduledTime}, Error: ${error.message}`,
     );
-    
+
     // This would integrate with a failure tracking service
     // For now, we just log the failure
   }

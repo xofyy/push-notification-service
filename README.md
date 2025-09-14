@@ -74,7 +74,7 @@ The Push Notification Service is a comprehensive solution for sending push notif
 - [x] **Notifications Integration** - Seamless template rendering during notification sending
 
 ### 🚧 Roadmap Features
-- [ ] **Advanced Analytics** - Real-time dashboards (Sprint 6)
+- [x] **Advanced Analytics** - Real-time dashboards (Sprint 6) ✅
 - [ ] **REST API** - Complete external API (Sprint 7)
 - [ ] **Admin Dashboard** - Web-based management interface (Sprint 9)
 - [ ] **Client SDKs** - JavaScript, Python, PHP libraries (Sprint 10)
@@ -1811,7 +1811,7 @@ DEBUG=devices:*,notifications:* npm start
 - ✅ **Sprint 3**: Device Management (Registration + Segmentation)
 - ✅ **Sprint 4**: Queue System (BullMQ + Job Processing)
 - ✅ **Sprint 5**: Templates (Dynamic Notifications)
-- ⏳ **Sprint 6**: Analytics (Real-time Dashboards)
+- ✅ **Sprint 6**: Analytics (Real-time Dashboards)
 
 ---
 

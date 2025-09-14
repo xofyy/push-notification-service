@@ -9,20 +9,18 @@ import { QueueService } from '../queue.service';
 export class BatchNotificationProcessor extends WorkerHost {
   private readonly logger = new Logger(BatchNotificationProcessor.name);
 
-  constructor(
-    private readonly queueService: QueueService,
-  ) {
+  constructor(private readonly queueService: QueueService) {
     super();
   }
 
   async process(job: Job<BatchJobData>): Promise<any> {
-    const { 
-      projectId, 
-      notifications, 
-      batchSize = 100, 
-      delayBetweenBatches = 1000 
+    const {
+      projectId,
+      notifications,
+      batchSize = 100,
+      delayBetweenBatches = 1000,
     } = job.data;
-    
+
     this.logger.log(
       `Processing batch notification job ${job.id} for project ${projectId} with ${notifications.length} notifications`,
     );
@@ -45,7 +43,7 @@ export class BatchNotificationProcessor extends WorkerHost {
 
       // Process notifications in batches
       const batches = this.createBatches(notifications, batchSize);
-      
+
       this.logger.log(
         `Split ${notifications.length} notifications into ${batches.length} batches of max ${batchSize} each`,
       );
@@ -60,14 +58,12 @@ export class BatchNotificationProcessor extends WorkerHost {
           );
 
           // Process batch concurrently
-          const batchJobPromises = batch.map((notification, notificationIndex) => 
-            this.queueService.addNotificationJob(
-              notification,
-              {
+          const batchJobPromises = batch.map(
+            (notification, notificationIndex) =>
+              this.queueService.addNotificationJob(notification, {
                 priority: 7, // Lower priority for batch jobs
                 jobId: `${batchId}-notification-${notificationIndex + 1}`,
-              },
-            )
+              }),
           );
 
           const batchJobs = await Promise.allSettled(batchJobPromises);
@@ -77,20 +73,26 @@ export class BatchNotificationProcessor extends WorkerHost {
             batchIndex: batchIndex + 1,
             batchId,
             notificationCount: batch.length,
-            successCount: batchJobs.filter(result => result.status === 'fulfilled').length,
-            failureCount: batchJobs.filter(result => result.status === 'rejected').length,
+            successCount: batchJobs.filter(
+              (result) => result.status === 'fulfilled',
+            ).length,
+            failureCount: batchJobs.filter(
+              (result) => result.status === 'rejected',
+            ).length,
             jobIds: batchJobs
-              .filter(result => result.status === 'fulfilled')
-              .map(result => (result as PromiseFulfilledResult<any>).value.id),
+              .filter((result) => result.status === 'fulfilled')
+              .map(
+                (result) => (result as PromiseFulfilledResult<any>).value.id,
+              ),
             errors: batchJobs
-              .filter(result => result.status === 'rejected')
-              .map(result => (result as PromiseRejectedResult).reason.message),
+              .filter((result) => result.status === 'rejected')
+              .map((result) => result.reason.message),
             timestamp: new Date(),
           };
 
           results.batchResults.push(batchResult);
           results.processedNotifications += batch.length;
-          
+
           if (batchResult.successCount > 0) {
             results.successfulBatches++;
           }
@@ -99,7 +101,8 @@ export class BatchNotificationProcessor extends WorkerHost {
           }
 
           // Update progress
-          const progress = Math.round(((batchIndex + 1) / batches.length) * 90) + 5;
+          const progress =
+            Math.round(((batchIndex + 1) / batches.length) * 90) + 5;
           await job.updateProgress(progress);
 
           this.logger.log(
@@ -110,11 +113,14 @@ export class BatchNotificationProcessor extends WorkerHost {
           if (batchIndex < batches.length - 1 && delayBetweenBatches > 0) {
             await this.delay(delayBetweenBatches);
           }
-
         } catch (batchError) {
+          const errorObj =
+            batchError instanceof Error
+              ? batchError
+              : new Error(String(batchError));
           this.logger.error(
-            `Failed to process batch ${batchIndex + 1}: ${batchError.message}`,
-            batchError.stack,
+            `Failed to process batch ${batchIndex + 1}: ${errorObj.message}`,
+            errorObj.stack,
           );
 
           results.failedBatches++;
@@ -125,19 +131,19 @@ export class BatchNotificationProcessor extends WorkerHost {
             successCount: 0,
             failureCount: batch.length,
             jobIds: [],
-            errors: [batchError.message],
+            errors: [errorObj.message],
             timestamp: new Date(),
           });
         }
       }
 
       results.endTime = new Date();
-      
+
       // Update job progress to complete
       await job.updateProgress(100);
 
       const duration = results.endTime.getTime() - results.startTime.getTime();
-      
+
       this.logger.log(
         `Completed batch job ${job.id}: processed ${results.processedNotifications}/${results.totalNotifications} notifications in ${duration}ms`,
       );
@@ -149,33 +155,37 @@ export class BatchNotificationProcessor extends WorkerHost {
           totalBatches: batches.length,
           successfulBatches: results.successfulBatches,
           failedBatches: results.failedBatches,
-          successRate: batches.length > 0 ? (results.successfulBatches / batches.length) * 100 : 0,
+          successRate:
+            batches.length > 0
+              ? (results.successfulBatches / batches.length) * 100
+              : 0,
           duration: duration,
           averageBatchTime: duration / batches.length,
         },
       };
-
     } catch (error) {
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        `Failed to process batch notification job ${job.id}: ${error.message}`,
-        error.stack,
+        `Failed to process batch notification job ${job.id}: ${errorObj.message}`,
+        errorObj.stack,
       );
 
-      throw error;
+      throw errorObj;
     }
   }
 
   private createBatches<T>(items: T[], batchSize: number): T[][] {
     const batches: T[][] = [];
-    
+
     for (let i = 0; i < items.length; i += batchSize) {
       batches.push(items.slice(i, i + batchSize));
     }
-    
+
     return batches;
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

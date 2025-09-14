@@ -5,19 +5,19 @@ export class RenderTemplateDto {
   @ApiProperty({ description: 'Template ID or name to render' })
   @IsString()
   @IsNotEmpty()
-  template: string;
+  template!: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Variables to substitute in template',
     type: Object,
     example: {
       userName: 'John Doe',
       action: 'login',
-      timestamp: '2025-01-20T10:00:00Z'
-    }
+      timestamp: '2025-01-20T10:00:00Z',
+    },
   })
   @IsObject()
-  variables: Record<string, any>;
+  variables!: Record<string, any>;
 
   @ApiPropertyOptional({ description: 'Preview mode - do not save statistics' })
   @IsOptional()
@@ -28,31 +28,34 @@ export class ValidateTemplateDto {
   @ApiProperty({ description: 'Template title to validate' })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  title!: string;
 
   @ApiProperty({ description: 'Template body to validate' })
   @IsString()
   @IsNotEmpty()
-  body: string;
+  body!: string;
 
   @ApiPropertyOptional({ description: 'Template image URL to validate' })
   @IsOptional()
   @IsString()
   imageUrl?: string;
 
-  @ApiPropertyOptional({ description: 'Template data to validate', type: Object })
+  @ApiPropertyOptional({
+    description: 'Template data to validate',
+    type: Object,
+  })
   @IsOptional()
   @IsObject()
   data?: Record<string, any>;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Test variables for validation',
     type: Object,
     example: {
       userName: 'John Doe',
-      action: 'test_action'
-    }
+      action: 'test_action',
+    },
   })
   @IsObject()
-  testVariables: Record<string, any>;
+  testVariables!: Record<string, any>;
 }

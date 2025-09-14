@@ -1,4 +1,14 @@
-import { IsString, IsOptional, IsObject, IsArray, IsIn, IsNotEmpty, MaxLength, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  IsArray,
+  IsIn,
+  IsNotEmpty,
+  MaxLength,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateTemplateDto {
@@ -6,7 +16,7 @@ export class CreateTemplateDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: 'Template description', maxLength: 500 })
   @IsOptional()
@@ -18,13 +28,13 @@ export class CreateTemplateDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
-  title: string;
+  title!: string;
 
   @ApiProperty({ description: 'Notification body template', maxLength: 1000 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(1000)
-  body: string;
+  body!: string;
 
   @ApiPropertyOptional({ description: 'Image URL template' })
   @IsOptional()
@@ -42,7 +52,10 @@ export class CreateTemplateDto {
   @IsString({ each: true })
   variables?: string[];
 
-  @ApiPropertyOptional({ description: 'Template status', enum: ['active', 'inactive'] })
+  @ApiPropertyOptional({
+    description: 'Template status',
+    enum: ['active', 'inactive'],
+  })
   @IsOptional()
   @IsIn(['active', 'inactive'])
   status?: 'active' | 'inactive';
@@ -58,14 +71,14 @@ export class CreateTemplateDto {
   @MaxLength(10)
   language?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Validation rules for variables',
     type: Object,
     example: {
       required: ['userName', 'action'],
       formats: { email: '^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$' },
-      ranges: { age: { min: 0, max: 120 } }
-    }
+      ranges: { age: { min: 0, max: 120 } },
+    },
   })
   @IsOptional()
   @IsObject()

@@ -3,6 +3,8 @@ import { Logger, Injectable } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { NotificationJobData } from '../queue.service';
 import { NotificationService } from '../../../providers/notification/notification.service';
+import { DevicesService } from '../../../modules/devices/devices.service';
+import { Platform } from '../../../modules/devices/schemas/device.schema';
 
 @Injectable()
 @Processor('notification-queue')
@@ -11,13 +13,14 @@ export class NotificationProcessor extends WorkerHost {
 
   constructor(
     private readonly notificationService: NotificationService,
+    private readonly devicesService: DevicesService,
   ) {
     super();
   }
 
   async process(job: Job<NotificationJobData>): Promise<any> {
     const { projectId, payload, targeting, options = {} } = job.data;
-    
+
     this.logger.log(
       `Processing notification job ${job.id} for project ${projectId}`,
     );
@@ -47,22 +50,24 @@ export class NotificationProcessor extends WorkerHost {
 
       // Handle different targeting methods
       if (targeting.deviceIds?.length) {
-        // For now, assume these are tokens - would need to query device collection to get platform
-        this.logger.warn('Direct device ID targeting not fully implemented, treating as Android tokens');
-        unifiedOptions.targets = targeting.deviceIds.map(deviceId => ({
-          platform: 'android',
-          token: deviceId,
+        const devices = await this.getDevicesByIds(projectId, targeting.deviceIds);
+        unifiedOptions.targets = devices.map((d) => ({
+          platform: d.platform === Platform.ANDROID ? 'android' : d.platform === Platform.IOS ? 'ios' : 'web',
+          token: d.token,
         }));
       } else if (targeting.segment) {
         // Segment targeting - get device tokens from segment query
-        const segmentResult = await this.getDevicesBySegment(projectId, targeting.segment);
-        unifiedOptions.targets = segmentResult.map(device => ({
+        const segmentResult = await this.getDevicesBySegment(
+          projectId,
+          targeting.segment,
+        );
+        unifiedOptions.targets = segmentResult.map((device) => ({
           platform: device.platform,
           token: device.token,
         }));
       } else if (targeting.topics?.length) {
         // Topic targeting - FCM supports topics
-        unifiedOptions.targets = targeting.topics.map(topic => ({
+        unifiedOptions.targets = targeting.topics.map((topic) => ({
           platform: 'android',
           topic: topic,
         }));
@@ -83,7 +88,12 @@ export class NotificationProcessor extends WorkerHost {
 
       // Store delivery results if tracking is enabled
       if (options.trackDelivery) {
-        await this.storeDeliveryResults(projectId, job.id!, result, options.metadata);
+        await this.storeDeliveryResults(
+          projectId,
+          job.id!,
+          result,
+          options.metadata,
+        );
       }
 
       // Update job progress to complete
@@ -101,56 +111,90 @@ export class NotificationProcessor extends WorkerHost {
           totalTargets: result.totalTargets,
           successCount: result.successCount,
           failureCount: result.failureCount,
-          deliveryRate: result.totalTargets > 0 ? (result.successCount / result.totalTargets) * 100 : 0,
+          deliveryRate:
+            result.totalTargets > 0
+              ? (result.successCount / result.totalTargets) * 100
+              : 0,
           platformResults: result.results,
         },
         timestamp: new Date(),
       };
-
     } catch (error) {
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        `Failed to process notification job ${job.id}: ${error.message}`,
-        error.stack,
+        `Failed to process notification job ${job.id}: ${errorObj.message}`,
+        errorObj.stack,
       );
 
       // Determine if job should be retried based on error type
-      const shouldRetry = this.shouldRetryJob(error);
-      
+      const shouldRetry = this.shouldRetryJob(errorObj);
+
       if (!shouldRetry) {
         // Mark job as failed permanently
-        await job.moveToFailed(error, job.token!, false);
+        await job.moveToFailed(errorObj, job.token!, false);
       }
 
-      throw error;
+      throw errorObj;
     }
   }
 
-  private async getDevicesBySegment(projectId: string, segment: any): Promise<Array<{ token: string; platform: string }>> {
-    // This would integrate with DevicesService to get devices matching segment
-    // For now, return empty array - will be implemented when DevicesService is integrated
-    this.logger.warn('Segment targeting not yet fully implemented, returning empty results');
-    return [];
+  private async getDevicesBySegment(
+    projectId: string,
+    segment: any,
+  ): Promise<Array<{ token: string; platform: string }>> {
+    try {
+      const devices = await this.devicesService.findBySegmentBasic(
+        projectId,
+        segment,
+        1000,
+      );
+      return devices.map((d) => ({ token: d.token, platform: d.platform }));
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      this.logger.error('Failed to resolve devices by segment:', err.message);
+      return [];
+    }
+  }
+
+  private async getDevicesByIds(
+    projectId: string,
+    deviceIds: string[],
+  ): Promise<Array<{ token: string; platform: Platform }>> {
+    try {
+      return await this.devicesService.findTokensByIds(projectId, deviceIds);
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      this.logger.error('Failed to resolve devices by ids:', err.message);
+      return [];
+    }
   }
 
   private async storeDeliveryResults(
-    projectId: string, 
-    jobId: string, 
-    result: any, 
-    metadata?: Record<string, any>
+    projectId: string,
+    jobId: string,
+    result: any,
+    metadata?: Record<string, any>,
   ): Promise<void> {
     // Store delivery results in database for analytics
     // This would integrate with a delivery tracking service
-    this.logger.log(`Storing delivery results for job ${jobId} in project ${projectId}`);
+    this.logger.log(
+      `Storing delivery results for job ${jobId} in project ${projectId}`,
+    );
   }
 
-  private shouldRetryJob(error: any): boolean {
+  private shouldRetryJob(error: Error): boolean {
     // Don't retry for validation errors or permanent failures
-    if (error.message?.includes('Invalid') || error.message?.includes('No valid targets')) {
+    if (
+      error.message?.includes('Invalid') ||
+      error.message?.includes('No valid targets')
+    ) {
       return false;
     }
 
     // Don't retry for authentication/authorization errors
-    if (error.status === 401 || error.status === 403) {
+    const errorWithStatus = error as any;
+    if (errorWithStatus.status === 401 || errorWithStatus.status === 403) {
       return false;
     }
 

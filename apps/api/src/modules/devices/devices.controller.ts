@@ -11,25 +11,114 @@ import {
   HttpStatus,
   Req,
   Put,
+  ForbiddenException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+  ApiSecurity,
+  ApiHeader,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { DevicesService } from './devices.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { SegmentQuery } from './dto/segment-query.dto';
 import { Platform } from './schemas/device.schema';
+import {
+  RequireApiKey,
+  CurrentProject,
+} from '../../common/decorators/auth.decorator';
+import {
+  HighFrequencyRateLimit,
+  MediumFrequencyRateLimit,
+  StrictRateLimit,
+} from '../../common/decorators/rate-limit.decorator';
+import { Project } from '../projects/schemas/project.schema';
 
+@ApiTags('Devices')
 @Controller('projects/:projectId/devices')
+@RequireApiKey()
+@ApiSecurity('ApiKeyAuth')
+@ApiHeader({
+  name: 'X-API-Key',
+  description: 'API Key for authentication',
+  required: true,
+})
 export class DevicesController {
   constructor(private readonly devicesService: DevicesService) {}
 
+  /**
+   * Validates that the projectId parameter matches the authenticated project
+   * @param projectId - Project ID from URL parameter
+   * @param project - Authenticated project from API key
+   */
+  private validateProjectAccess(projectId: string, project: Project): void {
+    if (project._id.toString() !== projectId) {
+      throw new ForbiddenException('Access denied to this project');
+    }
+  }
+
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @HighFrequencyRateLimit() // 100 requests per minute for device registration
+  @ApiOperation({
+    summary: 'Register device',
+    description: `
+      Registers a new device for push notifications with enhanced validation.
+      Automatically detects platform and validates device tokens.
+      Rate limited to 100 requests per minute.
+    `,
+  })
+  @ApiParam({
+    name: 'projectId',
+    description: 'Project ID',
+    example: '64f1a2b3c4d5e6f7a8b9c0d1',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Device registered successfully',
+    schema: {
+      example: {
+        _id: '64f1a2b3c4d5e6f7a8b9c0d3',
+        projectId: '64f1a2b3c4d5e6f7a8b9c0d1',
+        token: 'fcm_token_here_1234567890',
+        platform: 'android',
+        userId: 'user123',
+        isActive: true,
+        tags: ['premium', 'beta-tester'],
+        properties: {
+          appVersion: '1.2.3',
+          deviceModel: 'Pixel 7',
+          osVersion: '13',
+        },
+        lastSeen: '2023-12-07T16:45:00.000Z',
+        createdAt: '2023-12-07T16:45:00.000Z',
+        updatedAt: '2023-12-07T16:45:00.000Z',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid device data or token',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Invalid FCM token format',
+        error: 'Bad Request',
+      },
+    },
+  })
   register(
     @Param('projectId') projectId: string,
     @Body() registerDeviceDto: RegisterDeviceDto,
     @Req() request: Request,
+    @CurrentProject() project: Project,
   ) {
+    this.validateProjectAccess(projectId, project);
     return this.devicesService.registerEnhanced(projectId, registerDeviceDto, {
       autoDetectPlatform: true,
       validateToken: true,
@@ -42,12 +131,43 @@ export class DevicesController {
   registerBasic(
     @Param('projectId') projectId: string,
     @Body() registerDeviceDto: RegisterDeviceDto,
+    @CurrentProject() project: Project,
   ) {
+    this.validateProjectAccess(projectId, project);
     return this.devicesService.register(projectId, registerDeviceDto);
   }
 
   @Post('validate-token')
   @HttpCode(HttpStatus.OK)
+  @StrictRateLimit() // 10 requests per minute for token validation
+  @ApiOperation({
+    summary: 'Validate device token',
+    description: `
+      Validates a device token for a specific platform.
+      Checks token format and verifies with the respective push service.
+      Rate limited to 10 requests per minute due to external API calls.
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Token validation result',
+    schema: {
+      example: {
+        valid: true,
+        platform: 'android',
+        tokenType: 'fcm',
+        lastValidated: '2023-12-07T16:50:00.000Z',
+        metadata: {
+          appId: 'com.example.app',
+          projectId: 'firebase-project-123',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid token format',
+  })
   validateToken(
     @Body() body: { token: string; platform?: Platform },
     @Req() request: Request,
@@ -59,6 +179,7 @@ export class DevicesController {
 
   @Post('validate-tokens-batch')
   @HttpCode(HttpStatus.OK)
+  @StrictRateLimit() // 10 requests per minute for batch validation
   validateTokensBatch(
     @Body() body: { tokens: Array<{ token: string; platform?: Platform }> },
     @Req() request: Request,
@@ -72,8 +193,10 @@ export class DevicesController {
   @HttpCode(HttpStatus.OK)
   cleanupTokens(
     @Param('projectId') projectId: string,
+    @CurrentProject() project: Project,
     @Query('dryRun') dryRun?: string,
   ) {
+    this.validateProjectAccess(projectId, project);
     return this.devicesService.cleanupInvalidTokens(
       projectId,
       dryRun !== 'false',
@@ -116,12 +239,14 @@ export class DevicesController {
   @Get()
   findAll(
     @Param('projectId') projectId: string,
+    @CurrentProject() project: Project,
     @Query('platform') platform?: Platform,
     @Query('userId') userId?: string,
     @Query('tags') tags?: string,
     @Query('topics') topics?: string,
     @Query('isActive') isActive?: string,
   ) {
+    this.validateProjectAccess(projectId, project);
     const filters: any = {};
 
     if (platform) filters.platform = platform;
@@ -134,7 +259,11 @@ export class DevicesController {
   }
 
   @Get('stats')
-  getStats(@Param('projectId') projectId: string) {
+  getStats(
+    @Param('projectId') projectId: string,
+    @CurrentProject() project: Project,
+  ) {
+    this.validateProjectAccess(projectId, project);
     return this.devicesService.getStats(projectId);
   }
 
@@ -157,8 +286,10 @@ export class DevicesController {
   @HttpCode(HttpStatus.OK)
   queryDevicesBySegment(
     @Param('projectId') projectId: string,
+    @CurrentProject() project: Project,
     @Body() segmentQuery: SegmentQuery,
   ) {
+    this.validateProjectAccess(projectId, project);
     return this.devicesService.queryDevicesBySegment(projectId, segmentQuery);
   }
 
@@ -177,7 +308,10 @@ export class DevicesController {
     @Param('projectId') projectId: string,
     @Body() segmentQuery: SegmentQuery,
   ) {
-    return this.devicesService.getDeviceTokensBySegment(projectId, segmentQuery);
+    return this.devicesService.getDeviceTokensBySegment(
+      projectId,
+      segmentQuery,
+    );
   }
 
   @Post('segment/test')
@@ -190,7 +324,12 @@ export class DevicesController {
   }
 
   @Get(':id')
-  findOne(@Param('projectId') projectId: string, @Param('id') id: string) {
+  findOne(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @CurrentProject() project: Project,
+  ) {
+    this.validateProjectAccess(projectId, project);
     return this.devicesService.findOne(projectId, id);
   }
 
@@ -199,13 +338,20 @@ export class DevicesController {
     @Param('projectId') projectId: string,
     @Param('id') id: string,
     @Body() updateDeviceDto: UpdateDeviceDto,
+    @CurrentProject() project: Project,
   ) {
+    this.validateProjectAccess(projectId, project);
     return this.devicesService.update(projectId, id, updateDeviceDto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('projectId') projectId: string, @Param('id') id: string) {
+  remove(
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @CurrentProject() project: Project,
+  ) {
+    this.validateProjectAccess(projectId, project);
     return this.devicesService.remove(projectId, id);
   }
 
@@ -270,6 +416,10 @@ export class DevicesController {
     @Param('id') id: string,
     @Body() body: { propertyKeys: string[] },
   ) {
-    return this.devicesService.removeProperties(projectId, id, body.propertyKeys);
+    return this.devicesService.removeProperties(
+      projectId,
+      id,
+      body.propertyKeys,
+    );
   }
 }

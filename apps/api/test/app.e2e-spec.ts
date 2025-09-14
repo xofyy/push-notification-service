@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-const request = require('supertest');
+import * as request from 'supertest';
 import { AppModule } from './../src/app.module';
 
 describe('Push Notification Service (e2e)', () => {
@@ -35,7 +35,7 @@ describe('Push Notification Service (e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/v1/health')
         .expect(200)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(res.body).toHaveProperty('status', 'ok');
           expect(res.body).toHaveProperty('database');
           expect(res.body).toHaveProperty('redis');
@@ -54,7 +54,7 @@ describe('Push Notification Service (e2e)', () => {
           description: 'Integration test project',
         })
         .expect(201)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(res.body).toHaveProperty('name', 'Test Project E2E');
           expect(res.body).toHaveProperty('apiKey');
           expect(res.body).toHaveProperty('_id');
@@ -67,11 +67,11 @@ describe('Push Notification Service (e2e)', () => {
       return request(app.getHttpServer())
         .get('/api/v1/projects')
         .expect(200)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(Array.isArray(res.body)).toBe(true);
           expect(res.body.length).toBeGreaterThan(0);
           const testProject = res.body.find(
-            (p) => p.name === 'Test Project E2E',
+            (p: any) => p.name === 'Test Project E2E',
           );
           expect(testProject).toBeDefined();
         });
@@ -81,7 +81,7 @@ describe('Push Notification Service (e2e)', () => {
       return request(app.getHttpServer())
         .get(`/api/v1/projects/${projectId}`)
         .expect(200)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(res.body).toHaveProperty('name', 'Test Project E2E');
           expect(res.body).toHaveProperty('_id', projectId);
         });
@@ -101,7 +101,7 @@ describe('Push Notification Service (e2e)', () => {
           },
         })
         .expect(201)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(res.body).toHaveProperty('token', 'test_e2e_device_token');
           expect(res.body).toHaveProperty('platform', 'android');
           expect(res.body).toHaveProperty('_id');
@@ -114,11 +114,11 @@ describe('Push Notification Service (e2e)', () => {
       return request(app.getHttpServer())
         .get(`/api/v1/projects/${projectId}/devices`)
         .expect(200)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(Array.isArray(res.body)).toBe(true);
           expect(res.body.length).toBeGreaterThan(0);
           const testDevice = res.body.find(
-            (d) => d.token === 'test_e2e_device_token',
+            (d: any) => d.token === 'test_e2e_device_token',
           );
           expect(testDevice).toBeDefined();
         });
@@ -128,7 +128,7 @@ describe('Push Notification Service (e2e)', () => {
       return request(app.getHttpServer())
         .get(`/api/v1/projects/${projectId}/devices/stats`)
         .expect(200)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(res.body).toHaveProperty('total');
           expect(res.body).toHaveProperty('active');
           expect(res.body).toHaveProperty('platforms');
@@ -148,7 +148,7 @@ describe('Push Notification Service (e2e)', () => {
           targetDevices: [deviceId],
         })
         .expect(201)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(res.body).toHaveProperty('title', 'E2E Test Notification');
           expect(res.body).toHaveProperty('status', 'pending');
           expect(res.body).toHaveProperty('type', 'instant');
@@ -160,7 +160,7 @@ describe('Push Notification Service (e2e)', () => {
       return request(app.getHttpServer())
         .get(`/api/v1/projects/${projectId}/notifications`)
         .expect(200)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(res.body).toHaveProperty('notifications');
           expect(res.body).toHaveProperty('total');
           expect(Array.isArray(res.body.notifications)).toBe(true);
@@ -172,7 +172,7 @@ describe('Push Notification Service (e2e)', () => {
       return request(app.getHttpServer())
         .get(`/api/v1/projects/${projectId}/notifications/stats`)
         .expect(200)
-        .expect((res) => {
+        .expect((res: any) => {
           expect(res.body).toHaveProperty('total');
           expect(res.body.total).toBeGreaterThan(0);
         });

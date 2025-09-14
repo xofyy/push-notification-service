@@ -55,11 +55,12 @@ export class QueuesService {
    * Add a job to the appropriate queue based on type
    */
   async addJob(jobDto: QueueJobDto) {
-    const { type, projectId, payload, targeting, options, schedule, batch } = jobDto;
+    const { type, projectId, payload, targeting, options, schedule, batch } =
+      jobDto;
 
     try {
       this.logger.log(`Adding ${type} job for project ${projectId}`);
-      
+
       switch (type) {
         case 'immediate':
           return await this.queueService.addNotificationJob(
@@ -85,10 +86,15 @@ export class QueuesService {
 
         case 'batch':
           // For batch jobs, we expect an array of notifications in the payload
-          const notifications = Array.isArray(payload) 
-            ? payload.map(p => ({ projectId, payload: p, targeting, options }))
+          const notifications = Array.isArray(payload)
+            ? payload.map((p) => ({
+                projectId,
+                payload: p,
+                targeting,
+                options,
+              }))
             : [{ projectId, payload, targeting, options }];
-          
+
           return await this.queueService.addBatchJob(
             {
               projectId,
@@ -101,7 +107,9 @@ export class QueuesService {
 
         case 'recurring':
           if (!schedule?.type || !schedule?.value) {
-            throw new Error('schedule type and value are required for recurring jobs');
+            throw new Error(
+              'schedule type and value are required for recurring jobs',
+            );
           }
           return await this.queueService.addRecurringJob(
             {
@@ -114,8 +122,12 @@ export class QueuesService {
                 value: schedule.value,
                 timezone: schedule.timezone,
               },
-              startDate: schedule.startDate ? new Date(schedule.startDate) : undefined,
-              endDate: schedule.endDate ? new Date(schedule.endDate) : undefined,
+              startDate: schedule.startDate
+                ? new Date(schedule.startDate)
+                : undefined,
+              endDate: schedule.endDate
+                ? new Date(schedule.endDate)
+                : undefined,
               maxExecutions: schedule.maxExecutions,
             },
             { priority: this.getPriorityFromPayload(payload.priority) },
@@ -125,12 +137,19 @@ export class QueuesService {
           throw new Error(`Unknown job type: ${type}`);
       }
     } catch (error) {
-      this.logger.error(`Failed to add ${type} job: ${error.message}`);
-      
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to add ${type} job: ${errorObj.message}`);
+
       // If Redis connection is failing, we could implement a fallback strategy
-      if (error.message?.includes('connect') || error.message?.includes('Connection')) {
-        this.logger.warn('Redis connection issue detected. Queue job will be processed immediately as fallback.');
-        
+      if (
+        errorObj.message?.includes('connect') ||
+        errorObj.message?.includes('Connection')
+      ) {
+        this.logger.warn(
+          'Redis connection issue detected. Queue job will be processed immediately as fallback.',
+        );
+
         // For immediate jobs, execute directly without queue
         if (type === 'immediate') {
           try {
@@ -144,7 +163,7 @@ export class QueuesService {
               targetTopics: targeting.topics,
               type: NotificationType.INSTANT,
             });
-            
+
             return {
               id: `direct-${Date.now()}`,
               name: 'direct-notification',
@@ -156,13 +175,19 @@ export class QueuesService {
               result,
             };
           } catch (directError) {
-            this.logger.error(`Direct notification also failed: ${directError.message}`);
-            throw error; // Throw original queue error
+            const directErrorObj =
+              directError instanceof Error
+                ? directError
+                : new Error(String(directError));
+            this.logger.error(
+              `Direct notification also failed: ${directErrorObj.message}`,
+            );
+            throw errorObj; // Throw original queue error
           }
         }
       }
-      
-      throw error;
+
+      throw errorObj;
     }
   }
 
@@ -173,8 +198,12 @@ export class QueuesService {
     try {
       return await this.queueService.getJobStatus(queueName, jobId);
     } catch (error) {
-      this.logger.error(`Failed to get job status: ${error.message}`);
-      throw new NotFoundException(`Job ${jobId} not found in queue ${queueName}`);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to get job status: ${errorObj.message}`);
+      throw new NotFoundException(
+        `Job ${jobId} not found in queue ${queueName}`,
+      );
     }
   }
 
@@ -185,12 +214,16 @@ export class QueuesService {
     try {
       const cancelled = await this.queueService.cancelJob(queueName, jobId);
       if (!cancelled) {
-        throw new NotFoundException(`Job ${jobId} not found in queue ${queueName}`);
+        throw new NotFoundException(
+          `Job ${jobId} not found in queue ${queueName}`,
+        );
       }
       return { success: true, message: `Job ${jobId} cancelled successfully` };
     } catch (error) {
-      this.logger.error(`Failed to cancel job: ${error.message}`);
-      throw error;
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to cancel job: ${errorObj.message}`);
+      throw errorObj;
     }
   }
 
@@ -205,8 +238,10 @@ export class QueuesService {
         return await this.queueService.getAllQueuesStats();
       }
     } catch (error) {
-      this.logger.error(`Failed to get queue stats: ${error.message}`);
-      throw error;
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to get queue stats: ${errorObj.message}`);
+      throw errorObj;
     }
   }
 
@@ -216,20 +251,30 @@ export class QueuesService {
   async pauseQueue(queueName: string) {
     try {
       await this.queueService.pauseQueue(queueName);
-      return { success: true, message: `Queue ${queueName} paused successfully` };
+      return {
+        success: true,
+        message: `Queue ${queueName} paused successfully`,
+      };
     } catch (error) {
-      this.logger.error(`Failed to pause queue: ${error.message}`);
-      throw error;
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to pause queue: ${errorObj.message}`);
+      throw errorObj;
     }
   }
 
   async resumeQueue(queueName: string) {
     try {
       await this.queueService.resumeQueue(queueName);
-      return { success: true, message: `Queue ${queueName} resumed successfully` };
+      return {
+        success: true,
+        message: `Queue ${queueName} resumed successfully`,
+      };
     } catch (error) {
-      this.logger.error(`Failed to resume queue: ${error.message}`);
-      throw error;
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to resume queue: ${errorObj.message}`);
+      throw errorObj;
     }
   }
 
@@ -238,29 +283,47 @@ export class QueuesService {
    */
   @Cron(CronExpression.EVERY_HOUR)
   async cleanCompletedJobs() {
-    const queueNames = ['notification-queue', 'scheduled-queue', 'batch-queue', 'recurring-queue'];
+    const queueNames = [
+      'notification-queue',
+      'scheduled-queue',
+      'batch-queue',
+      'recurring-queue',
+    ];
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
     this.logger.log('Starting scheduled cleanup of completed jobs');
 
     try {
       const results = await Promise.allSettled(
-        queueNames.map(queueName => this.queueService.cleanQueue(queueName, maxAge))
+        queueNames.map((queueName) =>
+          this.queueService.cleanQueue(queueName, maxAge),
+        ),
       );
 
       let totalCleaned = 0;
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           totalCleaned += result.value.length;
-          this.logger.log(`Cleaned ${result.value.length} jobs from ${queueNames[index]}`);
+          this.logger.log(
+            `Cleaned ${result.value.length} jobs from ${queueNames[index]}`,
+          );
         } else {
-          this.logger.error(`Failed to clean ${queueNames[index]}: ${result.reason.message}`);
+          this.logger.error(
+            `Failed to clean ${queueNames[index]}: ${result.reason.message}`,
+          );
         }
       });
 
-      this.logger.log(`Completed job cleanup: ${totalCleaned} jobs cleaned across all queues`);
+      this.logger.log(
+        `Completed job cleanup: ${totalCleaned} jobs cleaned across all queues`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to clean completed jobs: ${error.message}`, error.stack);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Failed to clean completed jobs: ${errorObj.message}`,
+        errorObj.stack,
+      );
     }
   }
 
@@ -273,7 +336,7 @@ export class QueuesService {
       const health = {
         status: 'healthy',
         timestamp: new Date(),
-        queues: stats.map(stat => ({
+        queues: stats.map((stat) => ({
           name: stat.name,
           status: this.getQueueHealthStatus(stat),
           counts: stat.counts,
@@ -281,29 +344,37 @@ export class QueuesService {
       };
 
       // Determine overall health
-      const hasUnhealthyQueues = health.queues.some(queue => queue.status !== 'healthy');
+      const hasUnhealthyQueues = health.queues.some(
+        (queue) => queue.status !== 'healthy',
+      );
       if (hasUnhealthyQueues) {
         health.status = 'unhealthy';
       }
 
       return health;
     } catch (error) {
-      this.logger.warn(`Queue health check failed: ${error.message}`);
-      
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.warn(`Queue health check failed: ${errorObj.message}`);
+
       // Return degraded status instead of error when Redis is unavailable
-      if (error.message?.includes('connect') || error.message?.includes('Connection')) {
+      if (
+        errorObj.message?.includes('connect') ||
+        errorObj.message?.includes('Connection')
+      ) {
         return {
           status: 'degraded',
           timestamp: new Date(),
-          message: 'Queue system unavailable - using direct processing fallback',
+          message:
+            'Queue system unavailable - using direct processing fallback',
           fallbackMode: true,
         };
       }
-      
+
       return {
         status: 'error',
         timestamp: new Date(),
-        error: error.message,
+        error: errorObj.message,
       };
     }
   }
@@ -323,17 +394,17 @@ export class QueuesService {
   private getQueueHealthStatus(stat: any): string {
     // Simple health check logic
     const { counts } = stat;
-    
+
     // If too many failed jobs, mark as unhealthy
     if (counts.failed > 100) {
       return 'unhealthy';
     }
-    
+
     // If too many jobs are stuck in waiting state
     if (counts.waiting > 1000) {
       return 'degraded';
     }
-    
+
     return 'healthy';
   }
 }

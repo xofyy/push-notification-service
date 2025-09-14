@@ -67,10 +67,12 @@ export class RetryService {
         };
       } catch (error) {
         lastError = error as Error;
+        const errorObj =
+          error instanceof Error ? error : new Error(String(error));
 
         this.logger.warn(
-          `Attempt ${attempt} failed: ${error.message}`,
-          error.stack,
+          `Attempt ${attempt} failed: ${errorObj.message}`,
+          errorObj.stack,
         );
 
         // Check if error is retryable

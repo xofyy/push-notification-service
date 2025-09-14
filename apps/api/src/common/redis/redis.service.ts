@@ -36,7 +36,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           this.useUpstash = true;
           this.logger.log('✅ Connected to Upstash Redis successfully');
         } catch (error) {
-          this.logger.warn(`⚠️ Upstash connection failed: ${error.message}`);
+          const errorObj =
+            error instanceof Error ? error : new Error(String(error));
+          this.logger.warn(`⚠️ Upstash connection failed: ${errorObj.message}`);
           this.logger.log('🔄 Falling back to local Redis...');
           this.upstashClient = null;
         }
@@ -45,14 +47,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       // Only attempt local Redis if Upstash connection failed
       if (!this.useUpstash) {
         const localUrl = this.configService.get('redis.local.url');
-        
+
         // Skip local Redis if it's the default localhost URL and we don't have a local server
         if (localUrl === 'redis://localhost:6379') {
-          this.logger.log('📝 Skipping local Redis connection (localhost not available)');
-          this.logger.log('📝 Redis is optional - continuing without local cache');
+          this.logger.log(
+            '📝 Skipping local Redis connection (localhost not available)',
+          );
+          this.logger.log(
+            '📝 Redis is optional - continuing without local cache',
+          );
           return;
         }
-        
+
         this.ioredisClient = new IORedis(localUrl, {
           maxRetriesPerRequest: 3,
           lazyConnect: true,
@@ -63,15 +69,19 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
           await this.ioredisClient.ping();
           this.logger.log('✅ Connected to local Redis successfully');
         } catch (error) {
+          const errorObj =
+            error instanceof Error ? error : new Error(String(error));
           this.logger.warn(
-            `⚠️ Local Redis connection failed: ${error.message}`,
+            `⚠️ Local Redis connection failed: ${errorObj.message}`,
           );
           this.logger.log('📝 Redis is optional - continuing without cache');
           this.ioredisClient = null;
         }
       }
     } catch (error) {
-      this.logger.error(`❌ Redis initialization failed: ${error.message}`);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`❌ Redis initialization failed: ${errorObj.message}`);
     }
   }
 
@@ -92,7 +102,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       }
       return null;
     } catch (error) {
-      this.logger.error(`Redis GET error: ${error.message}`);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Redis GET error: ${errorObj.message}`);
       return null;
     }
   }
@@ -116,7 +128,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       }
       return false;
     } catch (error) {
-      this.logger.error(`Redis SET error: ${error.message}`);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Redis SET error: ${errorObj.message}`);
       return false;
     }
   }
@@ -132,7 +146,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       }
       return false;
     } catch (error) {
-      this.logger.error(`Redis DEL error: ${error.message}`);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Redis DEL error: ${errorObj.message}`);
       return false;
     }
   }
@@ -148,7 +164,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       }
       return false;
     } catch (error) {
-      this.logger.error(`Redis PING error: ${error.message}`);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Redis PING error: ${errorObj.message}`);
       return false;
     }
   }

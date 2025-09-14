@@ -15,28 +15,28 @@ export enum Platform {
 })
 export class Device {
   @Prop({ required: true, ref: 'Project' })
-  projectId: Types.ObjectId;
+  projectId!: Types.ObjectId;
 
   @Prop({ required: true })
-  token: string;
+  token!: string;
 
   @Prop({ required: true, enum: Platform })
-  platform: Platform;
+  platform!: Platform;
 
   @Prop({ trim: true })
   userId?: string;
 
   @Prop({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Prop({ type: [String], default: [] })
-  tags: string[];
+  tags!: string[];
 
   @Prop({ type: [String], default: [] })
-  topics: string[];
+  topics!: string[];
 
   @Prop({ type: Object, default: {} })
-  properties: Record<string, any>;
+  properties!: Record<string, unknown>;
 
   @Prop({
     type: {
@@ -49,7 +49,7 @@ export class Device {
     },
     default: {},
   })
-  metadata: {
+  metadata!: {
     language?: string;
     country?: string;
     timezone?: string;
@@ -59,16 +59,16 @@ export class Device {
   };
 
   @Prop({ default: Date.now })
-  lastActiveAt: Date;
+  lastActiveAt!: Date;
 
   @Prop({ default: 0 })
-  notificationsSent: number;
+  notificationsSent!: number;
 
   @Prop({ default: 0 })
-  notificationsDelivered: number;
+  notificationsDelivered!: number;
 
   @Prop({ default: 0 })
-  notificationsOpened: number;
+  notificationsOpened!: number;
 }
 
 export const DeviceSchema = SchemaFactory.createForClass(Device);
@@ -80,7 +80,5 @@ DeviceSchema.index({ projectId: 1, userId: 1 });
 DeviceSchema.index({ projectId: 1, tags: 1 });
 DeviceSchema.index({ projectId: 1, topics: 1 });
 DeviceSchema.index({ projectId: 1, isActive: 1 });
-DeviceSchema.index({ lastActiveAt: 1 });
-
 // TTL index for inactive devices (30 days)
 DeviceSchema.index({ lastActiveAt: 1 }, { expireAfterSeconds: 2592000 });

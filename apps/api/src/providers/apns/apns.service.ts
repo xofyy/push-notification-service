@@ -5,7 +5,7 @@ import * as apn from 'apn';
 export interface APNsNotificationPayload {
   title: string;
   body: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   badge?: number;
   sound?: string;
   category?: string;
@@ -98,7 +98,8 @@ export class APNsService implements OnModuleInit {
         `✅ APNs service initialized successfully (${production ? 'Production' : 'Sandbox'})`,
       );
     } catch (error) {
-      this.logger.error('❌ Failed to initialize APNs service:', error.message);
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      this.logger.error('❌ Failed to initialize APNs service:', errorObj.message);
       this.isInitialized = false;
     }
   }
@@ -152,7 +153,7 @@ export class APNsService implements OnModuleInit {
       }
 
       if (payload.category) {
-        (notification as any).category = payload.category;
+        (notification as apn.Notification & { category?: string }).category = payload.category;
       }
 
       if (payload.contentAvailable) {
@@ -168,7 +169,7 @@ export class APNsService implements OnModuleInit {
       }
 
       if (payload.targetContentId) {
-        (notification as any).targetContentId = payload.targetContentId;
+        (notification as apn.Notification & { targetContentId?: string }).targetContentId = payload.targetContentId;
       }
 
       // Set topic (bundle ID)
@@ -188,7 +189,7 @@ export class APNsService implements OnModuleInit {
       }
 
       // Set push type
-      (notification as any).pushType = pushType;
+      (notification as apn.Notification & { pushType?: string }).pushType = pushType;
 
       // Add custom data
       if (payload.data) {
@@ -207,37 +208,46 @@ export class APNsService implements OnModuleInit {
         }),
       );
 
-      const sendResults = results.map(({ token, result }: any) => {
-        if (result.status === 'fulfilled') {
-          const apnResult = result.value.result;
+      const sendResults = results.map((resultItem, index) => {
+        const token = tokens[index];
 
-          if (apnResult.sent && apnResult.sent.length > 0) {
-            return {
-              token,
-              success: true,
-              messageId: `apns-${Date.now()}-${token.slice(-8)}`,
-            };
-          } else if (apnResult.failed && apnResult.failed.length > 0) {
-            const failure = apnResult.failed[0];
-            const shouldRetry = this.shouldRetryError(failure.status);
-            const invalidToken = this.isInvalidTokenError(failure.status);
+        if (resultItem.status === 'fulfilled') {
+          const result = resultItem.value;
+          
+          if ('result' in result && result.result) {
+            const apnResult = result.result as { sent?: unknown[]; failed?: Array<{ status?: string; response?: { reason?: string } }> };
 
-            return {
-              token,
-              success: false,
-              error: `${failure.status}: ${failure.response?.reason || 'Unknown error'}`,
-              shouldRetry,
-              invalidToken,
-            };
+            if (apnResult.sent && apnResult.sent.length > 0) {
+              return {
+                token,
+                success: true,
+                messageId: `apns-${Date.now()}-${token.slice(-8)}`,
+              };
+            } else if (apnResult.failed && apnResult.failed.length > 0) {
+              const failure = apnResult.failed[0];
+              const shouldRetry = this.shouldRetryError(failure.status);
+              const invalidToken = this.isInvalidTokenError(failure.status);
+
+              return {
+                token,
+                success: false,
+                error: `${failure.status}: ${failure.response?.reason || 'Unknown error'}`,
+                shouldRetry,
+                invalidToken,
+              };
+            }
           }
         }
 
         // Handle Promise rejection or unknown error
-        const error = result.reason || result.value?.error;
+        const errorReason = resultItem.status === 'rejected' ? resultItem.reason : 
+                           (resultItem.status === 'fulfilled' && 'error' in resultItem.value ? resultItem.value.error : null);
+        const errorMessage = errorReason instanceof Error ? errorReason.message : 'Unknown error';
+        
         return {
           token,
           success: false,
-          error: error?.message || 'Unknown error',
+          error: errorMessage,
           shouldRetry: false,
           invalidToken: false,
         };
@@ -268,8 +278,9 @@ export class APNsService implements OnModuleInit {
 
       return sendResult;
     } catch (error) {
-      this.logger.error('APNs send error:', error.message);
-      throw error;
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      this.logger.error('APNs send error:', errorObj.message);
+      throw errorObj;
     }
   }
 

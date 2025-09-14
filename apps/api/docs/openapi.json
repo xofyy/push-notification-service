@@ -1,0 +1,3521 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/projects": {
+      "post": {
+        "description": "Creates a new push notification project with auto-generated API key and configuration.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
+                    "name": "My Mobile App",
+                    "description": "Push notifications for my mobile application",
+                    "apiKey": "pns_1234567890abcdef",
+                    "settings": {
+                      "fcm": {
+                        "enabled": true
+                      },
+                      "apns": {
+                        "enabled": false
+                      },
+                      "webPush": {
+                        "enabled": true
+                      }
+                    },
+                    "createdAt": "2023-12-07T10:00:00.000Z",
+                    "updatedAt": "2023-12-07T10:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "statusCode": 400,
+                    "message": [
+                      "name should not be empty",
+                      "name must be a string"
+                    ],
+                    "error": "Bad Request"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Create a new project",
+        "tags": [
+          "Projects"
+        ]
+      },
+      "get": {
+        "description": "Returns the project associated with the provided API key.",
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": [
+                    {
+                      "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
+                      "name": "My Mobile App",
+                      "description": "Push notifications for my mobile application",
+                      "settings": {
+                        "fcm": {
+                          "enabled": true,
+                          "serviceAccountKey": "[REDACTED]"
+                        },
+                        "apns": {
+                          "enabled": false
+                        },
+                        "webPush": {
+                          "enabled": true
+                        }
+                      },
+                      "stats": {
+                        "totalDevices": 1250,
+                        "totalNotifications": 5420,
+                        "deliveryRate": 0.954
+                      },
+                      "createdAt": "2023-12-07T10:00:00.000Z",
+                      "updatedAt": "2023-12-07T15:30:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "statusCode": 401,
+                    "message": "API key is required. Please provide X-API-Key header.",
+                    "error": "Unauthorized"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get authenticated project",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "get": {
+        "description": "Retrieves a specific project by ID. Users can only access their own project.",
+        "operationId": "findOne",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project found and returned"
+          },
+          "403": {
+            "description": "Access denied - can only access own project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "statusCode": 403,
+                    "message": "Access denied to this project",
+                    "error": "Forbidden"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get project by ID",
+        "tags": [
+          "Projects"
+        ]
+      },
+      "patch": {
+        "description": "Updates project settings and configuration. Users can only update their own project.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Project ID to update",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated successfully"
+          },
+          "403": {
+            "description": "Access denied - can only update own project"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Update project",
+        "tags": [
+          "Projects"
+        ]
+      },
+      "delete": {
+        "description": "Permanently deletes a project and all associated data. This action cannot be undone.",
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Project ID to delete",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Project deleted successfully"
+          },
+          "403": {
+            "description": "Access denied - can only delete own project"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Delete project",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{id}/regenerate-api-key": {
+      "post": {
+        "description": "Generates a new API key for the project. The old API key will become invalid immediately.",
+        "operationId": "regenerateApiKey",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "API key regenerated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
+                    "name": "My Mobile App",
+                    "apiKey": "pns_new1234567890abcdef",
+                    "message": "API key regenerated successfully. Please update your applications with the new key.",
+                    "regeneratedAt": "2023-12-07T16:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied - can only regenerate API key for own project"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Regenerate API key",
+        "tags": [
+          "Projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/register": {
+      "post": {
+        "description": "\n      Registers a new device for push notifications with enhanced validation.\n      Automatically detects platform and validates device tokens.\n      Rate limited to 100 requests per minute.\n    ",
+        "operationId": "register",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Device registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "_id": "64f1a2b3c4d5e6f7a8b9c0d3",
+                    "projectId": "64f1a2b3c4d5e6f7a8b9c0d1",
+                    "token": "fcm_token_here_1234567890",
+                    "platform": "android",
+                    "userId": "user123",
+                    "isActive": true,
+                    "tags": [
+                      "premium",
+                      "beta-tester"
+                    ],
+                    "properties": {
+                      "appVersion": "1.2.3",
+                      "deviceModel": "Pixel 7",
+                      "osVersion": "13"
+                    },
+                    "lastSeen": "2023-12-07T16:45:00.000Z",
+                    "createdAt": "2023-12-07T16:45:00.000Z",
+                    "updatedAt": "2023-12-07T16:45:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid device data or token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "statusCode": 400,
+                    "message": "Invalid FCM token format",
+                    "error": "Bad Request"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Register device",
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/register/basic": {
+      "post": {
+        "operationId": "registerBasic",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/validate-token": {
+      "post": {
+        "description": "\n      Validates a device token for a specific platform.\n      Checks token format and verifies with the respective push service.\n      Rate limited to 10 requests per minute due to external API calls.\n    ",
+        "operationId": "validateToken",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token validation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "valid": true,
+                    "platform": "android",
+                    "tokenType": "fcm",
+                    "lastValidated": "2023-12-07T16:50:00.000Z",
+                    "metadata": {
+                      "appId": "com.example.app",
+                      "projectId": "firebase-project-123"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid token format"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Validate device token",
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/validate-tokens-batch": {
+      "post": {
+        "operationId": "validateTokensBatch",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/cleanup-tokens": {
+      "post": {
+        "operationId": "cleanupTokens",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dryRun",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/refresh-token": {
+      "post": {
+        "operationId": "refreshToken",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/{id}/token": {
+      "patch": {
+        "operationId": "updateToken",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices": {
+      "get": {
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tags",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topics",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "isActive",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/stats": {
+      "get": {
+        "operationId": "getStats",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/tags": {
+      "get": {
+        "operationId": "getProjectTags",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/tags/stats": {
+      "get": {
+        "operationId": "getTagStats",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/properties/stats": {
+      "get": {
+        "operationId": "getPropertyStats",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/segment/query": {
+      "post": {
+        "operationId": "queryDevicesBySegment",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/segment/count": {
+      "post": {
+        "operationId": "countDevicesBySegment",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/segment/tokens": {
+      "post": {
+        "operationId": "getTokensBySegment",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/segment/test": {
+      "post": {
+        "operationId": "testSegmentQuery",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/{id}": {
+      "get": {
+        "operationId": "findOne",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      },
+      "patch": {
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDeviceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      },
+      "delete": {
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/{id}/topics/{topic}": {
+      "post": {
+        "operationId": "addToTopic",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topic",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      },
+      "delete": {
+        "operationId": "removeFromTopic",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topic",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/{id}/tags": {
+      "post": {
+        "operationId": "addTags",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      },
+      "delete": {
+        "operationId": "removeTags",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices/{id}/properties": {
+      "put": {
+        "operationId": "setProperties",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      },
+      "patch": {
+        "operationId": "updateProperties",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      },
+      "delete": {
+        "operationId": "removeProperties",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/notifications/send": {
+      "post": {
+        "description": "\n      Sends a push notification to specified devices or user segments.\n      Supports multi-platform delivery (iOS, Android, Web) with platform-specific customization.\n      Rate limited to 100 requests per minute.\n    ",
+        "operationId": "send",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendNotificationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Notification sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "id": "64f1a2b3c4d5e6f7a8b9c0d2",
+                    "projectId": "64f1a2b3c4d5e6f7a8b9c0d1",
+                    "status": "sent",
+                    "type": "push",
+                    "title": "Welcome!",
+                    "body": "Thanks for installing our app!",
+                    "recipients": {
+                      "total": 150,
+                      "successful": 148,
+                      "failed": 2
+                    },
+                    "platforms": {
+                      "fcm": {
+                        "sent": 120,
+                        "delivered": 118
+                      },
+                      "apns": {
+                        "sent": 28,
+                        "delivered": 28
+                      },
+                      "webPush": {
+                        "sent": 2,
+                        "delivered": 2
+                      }
+                    },
+                    "scheduledAt": null,
+                    "sentAt": "2023-12-07T16:30:00.000Z",
+                    "createdAt": "2023-12-07T16:30:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid notification data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "statusCode": 400,
+                    "message": [
+                      "title should not be empty",
+                      "recipients must be an array"
+                    ],
+                    "error": "Bad Request"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "headers": {
+              "X-RateLimit-Limit": {
+                "description": "Request limit",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Remaining requests",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Reset time",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Send push notification",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/notifications": {
+      "get": {
+        "description": "Retrieves a paginated list of notifications with optional filtering by status and type.",
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by notification status",
+            "schema": {
+              "enum": [
+                "pending",
+                "processing",
+                "sent",
+                "delivered",
+                "failed",
+                "cancelled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Filter by notification type",
+            "schema": {
+              "enum": [
+                "instant",
+                "scheduled",
+                "recurring"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of notifications to return (max 100)",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "skip",
+            "required": false,
+            "in": "query",
+            "description": "Number of notifications to skip for pagination",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notifications retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "notifications": [
+                      {
+                        "id": "64f1a2b3c4d5e6f7a8b9c0d2",
+                        "status": "sent",
+                        "type": "push",
+                        "title": "Welcome!",
+                        "body": "Thanks for installing our app!",
+                        "recipients": {
+                          "total": 150,
+                          "successful": 148,
+                          "failed": 2
+                        },
+                        "sentAt": "2023-12-07T16:30:00.000Z",
+                        "createdAt": "2023-12-07T16:30:00.000Z"
+                      }
+                    ],
+                    "pagination": {
+                      "total": 1250,
+                      "limit": 20,
+                      "skip": 0,
+                      "hasNext": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List notifications",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/notifications/stats": {
+      "get": {
+        "operationId": "getStats",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "days",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/notifications/{id}": {
+      "get": {
+        "operationId": "findOne",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/notifications/{id}/cancel": {
+      "patch": {
+        "operationId": "cancel",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/templates": {
+      "post": {
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Template created successfully"
+          },
+          "409": {
+            "description": "Template with same name already exists"
+          }
+        },
+        "summary": "Create a new notification template",
+        "tags": [
+          "Templates"
+        ]
+      },
+      "get": {
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "active",
+                "inactive"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "required": false,
+            "in": "query",
+            "description": "Filter by language",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Limit number of results",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Offset for pagination",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Templates retrieved successfully"
+          }
+        },
+        "summary": "Get all templates for a project",
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/templates/statistics": {
+      "get": {
+        "operationId": "getStatistics",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Statistics retrieved successfully"
+          }
+        },
+        "summary": "Get template usage statistics",
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/templates/{id}": {
+      "get": {
+        "operationId": "findOne",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Template ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template retrieved successfully"
+          },
+          "404": {
+            "description": "Template not found"
+          }
+        },
+        "summary": "Get a specific template by ID",
+        "tags": [
+          "Templates"
+        ]
+      },
+      "patch": {
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Template ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Template updated successfully"
+          },
+          "404": {
+            "description": "Template not found"
+          },
+          "409": {
+            "description": "Template with same name already exists"
+          }
+        },
+        "summary": "Update a template",
+        "tags": [
+          "Templates"
+        ]
+      },
+      "delete": {
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Template ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template deleted successfully"
+          },
+          "404": {
+            "description": "Template not found"
+          }
+        },
+        "summary": "Delete a template",
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/templates/name/{name}": {
+      "get": {
+        "operationId": "findByName",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "description": "Template name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template retrieved successfully"
+          },
+          "404": {
+            "description": "Template not found"
+          }
+        },
+        "summary": "Get a specific template by name",
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/templates/render": {
+      "post": {
+        "operationId": "render",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Template rendered successfully"
+          },
+          "400": {
+            "description": "Template validation failed"
+          },
+          "404": {
+            "description": "Template not found"
+          }
+        },
+        "summary": "Render a template with variables",
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/templates/validate": {
+      "post": {
+        "operationId": "validate",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateTemplateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Template validated successfully"
+          }
+        },
+        "summary": "Validate template syntax and variables",
+        "tags": [
+          "Templates"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/queues/jobs": {
+      "post": {
+        "operationId": "addJob",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/queues/jobs/{queueName}/{jobId}/status": {
+      "get": {
+        "operationId": "getJobStatus",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "queueName",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/queues/jobs/{queueName}/{jobId}": {
+      "delete": {
+        "operationId": "cancelJob",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "queueName",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "jobId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/queues/stats": {
+      "get": {
+        "operationId": "getQueueStats",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "queue",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/queues/{queueName}/pause": {
+      "post": {
+        "operationId": "pauseQueue",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "queueName",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/queues/{queueName}/resume": {
+      "post": {
+        "operationId": "resumeQueue",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "queueName",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/queues/health": {
+      "get": {
+        "operationId": "getHealthStatus",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Queues"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/events": {
+      "post": {
+        "operationId": "trackEvent",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event tracked successfully"
+          }
+        },
+        "summary": "Track a single analytics event",
+        "tags": [
+          "Analytics"
+        ]
+      },
+      "get": {
+        "operationId": "getEvents",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Events retrieved successfully"
+          }
+        },
+        "summary": "Get analytics events with filtering and pagination",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/events/batch": {
+      "post": {
+        "operationId": "trackBatchEvents",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackBatchEventsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Batch events tracked successfully"
+          }
+        },
+        "summary": "Track multiple analytics events in batch",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/overview": {
+      "get": {
+        "operationId": "getOverview",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Overview retrieved successfully"
+          }
+        },
+        "summary": "Get project analytics overview",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/notifications": {
+      "get": {
+        "operationId": "getNotificationAnalytics",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification analytics retrieved successfully"
+          }
+        },
+        "summary": "Get notification analytics and performance metrics",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/notifications/funnel": {
+      "get": {
+        "operationId": "getNotificationFunnel",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Funnel data retrieved successfully"
+          }
+        },
+        "summary": "Get notification conversion funnel",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/engagement": {
+      "get": {
+        "operationId": "getEngagementMetrics",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Engagement metrics retrieved successfully"
+          }
+        },
+        "summary": "Get user engagement metrics",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/performance": {
+      "get": {
+        "operationId": "getPerformanceMetrics",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Performance metrics retrieved successfully"
+          }
+        },
+        "summary": "Get system performance metrics",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/realtime": {
+      "get": {
+        "operationId": "getRealTimeData",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Real-time data retrieved successfully"
+          }
+        },
+        "summary": "Get real-time analytics dashboard data",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/export": {
+      "get": {
+        "operationId": "exportAnalytics",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "required": false,
+            "in": "query",
+            "description": "Export format",
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data exported successfully"
+          }
+        },
+        "summary": "Export analytics data",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/admin/rate-limits/status/{projectId}": {
+      "get": {
+        "operationId": "getProjectRateLimitStatus",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID to check",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rate limit status retrieved successfully"
+          }
+        },
+        "summary": "Get rate limit status for a project",
+        "tags": [
+          "Rate Limit Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rate-limits/status": {
+      "get": {
+        "operationId": "getCurrentProjectRateLimitStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Rate limit status retrieved successfully"
+          }
+        },
+        "summary": "Get current project rate limit status",
+        "tags": [
+          "Rate Limit Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rate-limits/reset/{projectId}": {
+      "delete": {
+        "operationId": "resetProjectRateLimits",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID to reset",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rate limits reset successfully"
+          }
+        },
+        "summary": "Reset rate limits for a project",
+        "tags": [
+          "Rate Limit Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rate-limits/reset": {
+      "delete": {
+        "operationId": "resetCurrentProjectRateLimits",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Rate limits reset successfully"
+          }
+        },
+        "summary": "Reset rate limits for current project",
+        "tags": [
+          "Rate Limit Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rate-limits/health": {
+      "get": {
+        "operationId": "getRateLimitHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Rate limiting system health status"
+          }
+        },
+        "summary": "Check rate limiting system health",
+        "tags": [
+          "Rate Limit Admin"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "Returns the health status of the Push Notification Service API.",
+        "operationId": "getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "ok",
+                    "timestamp": "2023-12-07T17:00:00.000Z",
+                    "uptime": 3600,
+                    "environment": "development",
+                    "version": "1.0.0",
+                    "services": {
+                      "database": "connected",
+                      "redis": "connected",
+                      "fcm": "configured",
+                      "apns": "not_configured",
+                      "webPush": "configured"
+                    },
+                    "memory": {
+                      "used": "45.2 MB",
+                      "total": "512 MB",
+                      "percentage": 8.8
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Health check",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/health/ping": {
+      "get": {
+        "description": "Simple ping endpoint for basic connectivity testing.",
+        "operationId": "ping",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Pong response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "message": "pong",
+                    "timestamp": "2023-12-07T17:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Ping endpoint",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1": {
+      "get": {
+        "operationId": "getInfo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/api/v1/hello": {
+      "get": {
+        "operationId": "getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Push Notification Service API",
+    "description": "\n      Enterprise-grade Push Notification Service supporting iOS, Android, and Web platforms.\n      \n      ## Features\n      - 🚀 Multi-platform push notifications (FCM, APNs, Web Push)\n      - 📱 Advanced device management and segmentation\n      - 📊 Real-time analytics and delivery tracking\n      - 🏷️ Template-based notifications with variable substitution\n      - ⚡ High-performance queue system with BullMQ\n      - 🔒 Enterprise security with API key authentication\n      - 🛡️ Rate limiting for API protection\n      - 📈 99.9% uptime reliability target\n      \n      ## Authentication\n      All endpoints require an API key in the `X-API-Key` header.\n      \n      ## Rate Limiting\n      API endpoints are rate-limited to ensure fair usage:\n      - **High Frequency**: 100 requests/minute (notifications, events)\n      - **Medium Frequency**: 300 requests/minute (device management)\n      - **Low Frequency**: 1000 requests/hour (analytics, admin)\n      \n      Rate limit headers are included in all responses:\n      - `X-RateLimit-Limit`: Maximum requests allowed\n      - `X-RateLimit-Remaining`: Requests remaining in current window\n      - `X-RateLimit-Reset`: Unix timestamp when the rate limit resets\n    ",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Push Notification Service Team",
+      "url": "https://github.com/your-repo/push-notification-service",
+      "email": "support@yourcompany.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "tags": [
+    {
+      "name": "Projects",
+      "description": "Project management and configuration"
+    },
+    {
+      "name": "Devices",
+      "description": "Device registration, validation, and management"
+    },
+    {
+      "name": "Notifications",
+      "description": "Send and manage push notifications"
+    },
+    {
+      "name": "Templates",
+      "description": "Notification templates with variable substitution"
+    },
+    {
+      "name": "Analytics",
+      "description": "Analytics, tracking, and reporting"
+    },
+    {
+      "name": "Queues",
+      "description": "Job queue management and monitoring"
+    },
+    {
+      "name": "Rate Limit Admin",
+      "description": "Rate limiting administration and monitoring"
+    },
+    {
+      "name": "Health",
+      "description": "System health and status endpoints"
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Development Server"
+    },
+    {
+      "url": "https://api.yourcompany.com",
+      "description": "Production Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API Key for project authentication. Get your API key from the project dashboard."
+      }
+    },
+    "schemas": {
+      "CreateProjectDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateProjectDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RegisterDeviceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "SegmentQuery": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateDeviceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RecurringConfigDto": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Cron pattern for recurring notifications",
+            "example": "0 9 * * MON-FRI"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Timezone for scheduling",
+            "example": "America/New_York"
+          },
+          "endDate": {
+            "type": "string",
+            "description": "End date for recurring notifications",
+            "example": "2024-12-31T23:59:59.000Z"
+          }
+        },
+        "required": [
+          "pattern",
+          "timezone"
+        ]
+      },
+      "SendNotificationDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Notification title",
+            "example": "Welcome to our app!",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "body": {
+            "type": "string",
+            "description": "Notification body/message",
+            "example": "Thanks for installing our app. Get started with these features!",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Image URL for rich notifications",
+            "example": "https://example.com/images/welcome.jpg"
+          },
+          "actionUrl": {
+            "type": "string",
+            "description": "Action URL when notification is clicked",
+            "example": "https://example.com/welcome"
+          },
+          "data": {
+            "type": "object",
+            "description": "Custom data payload for the notification",
+            "example": {
+              "userId": "12345",
+              "campaignId": "welcome_series_1",
+              "customAction": "open_feature"
+            }
+          },
+          "type": {
+            "type": "string",
+            "description": "Notification type",
+            "enum": [
+              "instant",
+              "scheduled",
+              "recurring"
+            ],
+            "example": "instant"
+          },
+          "targetDevices": {
+            "description": "Array of specific device IDs to target",
+            "example": [
+              "device_123",
+              "device_456"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "targetTags": {
+            "description": "Array of tags to target devices",
+            "example": [
+              "premium",
+              "beta-tester",
+              "ios"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "targetTopics": {
+            "description": "Array of topics to target",
+            "example": [
+              "news",
+              "promotions"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "targetQuery": {
+            "type": "object",
+            "description": "Advanced query for targeting specific user segments",
+            "example": {
+              "platform": "android",
+              "appVersion": {
+                "$gte": "2.0.0"
+              },
+              "lastSeen": {
+                "$gte": "2023-12-01"
+              }
+            }
+          },
+          "scheduledFor": {
+            "type": "string",
+            "description": "Schedule notification for future delivery",
+            "example": "2023-12-08T09:00:00.000Z"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "Expiration time for the notification",
+            "example": "2023-12-08T18:00:00.000Z"
+          },
+          "recurring": {
+            "description": "Configuration for recurring notifications",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RecurringConfigDto"
+              }
+            ]
+          },
+          "templateId": {
+            "type": "string",
+            "description": "Template ID for template-based notifications",
+            "example": "64f1a2b3c4d5e6f7a8b9c0d4"
+          },
+          "templateVariables": {
+            "type": "object",
+            "description": "Variables for template substitution",
+            "example": {
+              "userName": "John Doe",
+              "productName": "Premium Plan",
+              "discountAmount": "20%"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ]
+      },
+      "CreateTemplateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Template name",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "description": "Template description",
+            "maxLength": 500
+          },
+          "title": {
+            "type": "string",
+            "description": "Notification title template",
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "description": "Notification body template",
+            "maxLength": 1000
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Image URL template"
+          },
+          "data": {
+            "type": "object",
+            "description": "Custom data template"
+          },
+          "variables": {
+            "description": "Template variables",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "Template status",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "defaultValues": {
+            "type": "object",
+            "description": "Default variable values"
+          },
+          "language": {
+            "type": "string",
+            "description": "Template language",
+            "example": "en"
+          },
+          "validationRules": {
+            "type": "object",
+            "description": "Validation rules for variables",
+            "example": {
+              "required": [
+                "userName",
+                "action"
+              ],
+              "formats": {
+                "email": "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$"
+              },
+              "ranges": {
+                "age": {
+                  "min": 0,
+                  "max": 120
+                }
+              }
+            }
+          },
+          "version": {
+            "type": "number",
+            "description": "Template version",
+            "default": 1
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "body"
+        ]
+      },
+      "RenderTemplateDto": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "Template ID or name to render"
+          },
+          "variables": {
+            "type": "object",
+            "description": "Variables to substitute in template",
+            "example": {
+              "userName": "John Doe",
+              "action": "login",
+              "timestamp": "2025-01-20T10:00:00Z"
+            }
+          },
+          "preview": {
+            "type": "boolean",
+            "description": "Preview mode - do not save statistics"
+          }
+        },
+        "required": [
+          "template",
+          "variables"
+        ]
+      },
+      "ValidateTemplateDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Template title to validate"
+          },
+          "body": {
+            "type": "string",
+            "description": "Template body to validate"
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Template image URL to validate"
+          },
+          "data": {
+            "type": "object",
+            "description": "Template data to validate"
+          },
+          "testVariables": {
+            "type": "object",
+            "description": "Test variables for validation",
+            "example": {
+              "userName": "John Doe",
+              "action": "test_action"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "body",
+          "testVariables"
+        ]
+      },
+      "UpdateTemplateDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Template name",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "description": "Template description",
+            "maxLength": 500
+          },
+          "title": {
+            "type": "string",
+            "description": "Notification title template",
+            "maxLength": 200
+          },
+          "body": {
+            "type": "string",
+            "description": "Notification body template",
+            "maxLength": 1000
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Image URL template"
+          },
+          "data": {
+            "type": "object",
+            "description": "Custom data template"
+          },
+          "variables": {
+            "description": "Template variables",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "Template status",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "defaultValues": {
+            "type": "object",
+            "description": "Default variable values"
+          },
+          "language": {
+            "type": "string",
+            "description": "Template language",
+            "example": "en"
+          },
+          "validationRules": {
+            "type": "object",
+            "description": "Validation rules for variables",
+            "example": {
+              "required": [
+                "userName",
+                "action"
+              ],
+              "formats": {
+                "email": "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$"
+              },
+              "ranges": {
+                "age": {
+                  "min": 0,
+                  "max": 120
+                }
+              }
+            }
+          },
+          "version": {
+            "type": "number",
+            "description": "Template version",
+            "default": 1
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Created by user ID"
+          },
+          "updatedBy": {
+            "type": "string",
+            "description": "Updated by user ID"
+          }
+        }
+      },
+      "TrackEventDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TrackBatchEventsDto": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  }
+}

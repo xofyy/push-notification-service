@@ -10,10 +10,10 @@ import { Model, Types } from 'mongoose';
 import { Device, DeviceDocument, Platform } from './schemas/device.schema';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
-import { 
-  SegmentQuery, 
-  PropertyOperator, 
-  SegmentOperator 
+import {
+  SegmentQuery,
+  PropertyOperator,
+  SegmentOperator,
 } from './dto/segment-query.dto';
 
 @Injectable()
@@ -25,35 +25,106 @@ export class DevicesService {
   ) {}
 
   /**
+   * Resolve devices by IDs and return tokens/platforms for sending
+   */
+  async findTokensByIds(
+    projectId: string,
+    deviceIds: string[],
+  ): Promise<Array<{ token: string; platform: Platform }>> {
+    const ids = deviceIds
+      .filter(Boolean)
+      .map((id) => new Types.ObjectId(id));
+    if (ids.length === 0) return [];
+    const docs = await this.deviceModel
+      .find({ _id: { $in: ids }, projectId: new Types.ObjectId(projectId), isActive: true })
+      .select('token platform')
+      .lean();
+    return (docs || [])
+      .filter((d: any) => typeof d.token === 'string' && d.token.length > 0)
+      .map((d: any) => ({ token: d.token as string, platform: d.platform as Platform }));
+  }
+
+  /**
+   * Basic segment filtering for queue processor usage (limit applied)
+   */
+  async findBySegmentBasic(
+    projectId: string,
+    segment: Partial<SegmentQuery> | any,
+    limit = 1000,
+  ): Promise<Array<{ token: string; platform: Platform }>> {
+    const filter: any = { projectId: new Types.ObjectId(projectId), isActive: true };
+
+    if (segment?.platforms?.platforms?.length) {
+      filter.platform = { $in: segment.platforms.platforms };
+    }
+    if (segment?.tags?.tags?.length) {
+      const tags = segment.tags.tags;
+      if ((segment.tags.operator || 'or') === 'and') {
+        filter.tags = { $all: tags };
+      } else {
+        filter.tags = { $in: tags };
+      }
+    }
+    if (Array.isArray(segment?.topics) && segment.topics.length) {
+      filter.topics = { $in: segment.topics };
+    }
+    if (Array.isArray(segment?.userIds) && segment.userIds.length) {
+      filter.userId = { $in: segment.userIds };
+    }
+    if (segment?.isActive !== undefined) {
+      filter.isActive = !!segment.isActive;
+    }
+    if (segment?.activity?.lastActiveWithinDays) {
+      const days = Number(segment.activity.lastActiveWithinDays);
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      filter.lastActiveAt = { $gte: d };
+    }
+
+    const docs = await this.deviceModel
+      .find(filter)
+      .select('token platform')
+      .limit(Math.min(limit, 5000))
+      .lean();
+
+    return (docs || [])
+      .filter((d: any) => typeof d.token === 'string' && d.token.length > 0)
+      .map((d: any) => ({ token: d.token as string, platform: d.platform as Platform }));
+  }
+
+  /**
    * Detect platform from device token
    */
   private detectPlatformFromToken(token: string): Platform | null {
-    // FCM tokens are typically 152+ characters and start with specific patterns
-    if (token.length >= 140 && /^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/.test(token)) {
-      return Platform.ANDROID;
-    }
-    
+    // Web Push subscriptions contain endpoint URLs (JSON with endpoint + keys)
+    try {
+      const parsed = JSON.parse(token);
+      if (
+        parsed.endpoint &&
+        parsed.keys &&
+        parsed.keys.p256dh &&
+        parsed.keys.auth
+      ) {
+        return Platform.WEB;
+      }
+    } catch {}
+
     // APNs tokens are typically 64 characters (hex) for production
     // or longer for sandbox, and contain only hex characters
-    if (/^[a-f0-9]{64}$/i.test(token) || (/^[a-f0-9]{8,}$/i.test(token) && token.length >= 64)) {
+    if (
+      /^[a-f0-9]{64}$/i.test(token) ||
+      (/^[a-f0-9]{8,}$/i.test(token) && token.length >= 64)
+    ) {
       return Platform.IOS;
     }
 
-    // Web Push subscriptions contain endpoint URLs
-    try {
-      const parsed = JSON.parse(token);
-      if (parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth) {
-        return Platform.WEB;
-      }
-    } catch {
-      // Not a JSON subscription object
+    // FCM tokens are typically long URL-safe strings
+    if (token.length >= 100 && /^[A-Za-z0-9_:\-.]+$/.test(token)) {
+      return Platform.ANDROID;
     }
 
-    // If token contains URL patterns common in web push
-    if (token.includes('fcm.googleapis.com') || token.includes('mozilla.com') || 
-        token.includes('windows.com') || token.includes('vapid')) {
-      return Platform.WEB;
-    }
+    // If token looks like a push endpoint URL
+    if (token.startsWith('https://')) return Platform.WEB;
 
     return null;
   }
@@ -64,27 +135,33 @@ export class DevicesService {
   private validateTokenForPlatform(token: string, platform: Platform): boolean {
     switch (platform) {
       case Platform.ANDROID:
-        // FCM token validation: should be 152+ chars with specific format
-        return token.length >= 140 && /^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/.test(token);
-      
+        // FCM tokens: long URL-safe strings
+        return token.length >= 100 && /^[A-Za-z0-9_:\-.]+$/.test(token);
+
       case Platform.IOS:
         // APNs token validation: 64+ hex characters
         return /^[a-f0-9]{64,}$/i.test(token);
-      
+
       case Platform.WEB:
         // Web Push subscription validation
         try {
           const parsed = JSON.parse(token);
-          return !!(parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth);
+          return !!(
+            parsed.endpoint &&
+            parsed.keys &&
+            parsed.keys.p256dh &&
+            parsed.keys.auth
+          );
         } catch {
           // Check if it's a simple endpoint URL
-          return token.startsWith('https://') && (
-            token.includes('fcm.googleapis.com') ||
-            token.includes('mozilla.com') ||
-            token.includes('windows.com')
+          return (
+            token.startsWith('https://') &&
+            (token.includes('fcm.googleapis.com') ||
+              token.includes('mozilla.com') ||
+              token.includes('windows.com'))
           );
         }
-      
+
       default:
         return false;
     }
@@ -102,13 +179,17 @@ export class DevicesService {
       userAgent?: string;
     } = {},
   ): Promise<Device> {
-    const { autoDetectPlatform = true, validateToken = true, userAgent } = options;
+    const {
+      autoDetectPlatform = true,
+      validateToken = true,
+      userAgent,
+    } = options;
     let { platform, token } = registerDeviceDto;
 
     // Auto-detect platform if not provided or if autoDetectPlatform is enabled
     if (!platform || autoDetectPlatform) {
       const detectedPlatform = this.detectPlatformFromToken(token);
-      
+
       if (detectedPlatform) {
         if (platform && platform !== detectedPlatform) {
           this.logger.warn(
@@ -119,7 +200,7 @@ export class DevicesService {
       } else if (!platform) {
         // Try to detect from user agent if available
         platform = this.detectPlatformFromUserAgent(userAgent) || Platform.WEB;
-        
+
         if (!platform) {
           throw new BadRequestException(
             'Cannot detect platform from token. Please specify platform explicitly.',
@@ -149,19 +230,24 @@ export class DevicesService {
     if (!userAgent) return null;
 
     const ua = userAgent.toLowerCase();
-    
+
     // iOS detection
     if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ios')) {
       return Platform.IOS;
     }
-    
+
     // Android detection
     if (ua.includes('android')) {
       return Platform.ANDROID;
     }
-    
+
     // Web/Browser detection (fallback)
-    if (ua.includes('mozilla') || ua.includes('webkit') || ua.includes('chrome') || ua.includes('firefox')) {
+    if (
+      ua.includes('mozilla') ||
+      ua.includes('webkit') ||
+      ua.includes('chrome') ||
+      ua.includes('firefox')
+    ) {
       return Platform.WEB;
     }
 
@@ -188,8 +274,10 @@ export class DevicesService {
     recommendations: string[];
   }> {
     const detectedPlatform = this.detectPlatformFromToken(token);
-    const userAgentPlatform = this.detectPlatformFromUserAgent(options.userAgent);
-    
+    const userAgentPlatform = this.detectPlatformFromUserAgent(
+      options.userAgent,
+    );
+
     const result = {
       valid: false,
       detectedPlatform,
@@ -205,7 +293,7 @@ export class DevicesService {
 
     // Determine the platform to validate against
     const platformToValidate = providedPlatform || detectedPlatform;
-    
+
     if (!platformToValidate) {
       result.recommendations.push(
         'Could not detect platform from token. Please provide platform explicitly.',
@@ -219,7 +307,11 @@ export class DevicesService {
     }
 
     // Check platform consistency
-    if (providedPlatform && detectedPlatform && providedPlatform !== detectedPlatform) {
+    if (
+      providedPlatform &&
+      detectedPlatform &&
+      providedPlatform !== detectedPlatform
+    ) {
       result.platformMatch = false;
       result.recommendations.push(
         `Platform mismatch: provided ${providedPlatform}, but token appears to be for ${detectedPlatform}.`,
@@ -263,7 +355,9 @@ export class DevicesService {
     }
 
     if (result.valid) {
-      result.recommendations.push('Token format is valid for the detected platform.');
+      result.recommendations.push(
+        'Token format is valid for the detected platform.',
+      );
     }
 
     return result;
@@ -282,7 +376,11 @@ export class DevicesService {
       userAgent?: string;
     } = {},
   ): Promise<Device> {
-    const { validateToken = true, autoDetectPlatform = false, userAgent } = options;
+    const {
+      validateToken = true,
+      autoDetectPlatform = false,
+      userAgent,
+    } = options;
 
     // Find the existing device
     const existingDevice = await this.deviceModel
@@ -339,7 +437,9 @@ export class DevicesService {
       throw new NotFoundException('Device not found during update');
     }
 
-    this.logger.log(`Token updated for device ${deviceId} on platform ${platform}`);
+    this.logger.log(
+      `Token updated for device ${deviceId} on platform ${platform}`,
+    );
     return updatedDevice;
   }
 
@@ -370,11 +470,16 @@ export class DevicesService {
       throw new NotFoundException('Device with provided token not found');
     }
 
-    return this.updateToken(projectId, (existingDevice._id as Types.ObjectId).toString(), newToken, {
-      validateToken,
-      autoDetectPlatform,
-      userAgent: options.userAgent,
-    });
+    return this.updateToken(
+      projectId,
+      (existingDevice._id as Types.ObjectId).toString(),
+      newToken,
+      {
+        validateToken,
+        autoDetectPlatform,
+        userAgent: options.userAgent,
+      },
+    );
   }
 
   /**
@@ -401,11 +506,13 @@ export class DevicesService {
             detectedPlatform: validation.detectedPlatform,
           };
         } catch (error) {
+          const errorObj =
+            error instanceof Error ? error : new Error(String(error));
           return {
             token: token.slice(0, 20) + '...',
             valid: false,
             detectedPlatform: null,
-            error: error.message,
+            error: errorObj.message,
           };
         }
       }),
@@ -458,7 +565,10 @@ export class DevicesService {
 
     // Check each device token
     for (const device of devices) {
-      const isValid = this.validateTokenForPlatform(device.token, device.platform);
+      const isValid = this.validateTokenForPlatform(
+        device.token,
+        device.platform,
+      );
       if (!isValid) {
         invalidDevices.push({
           deviceId: (device._id as Types.ObjectId).toString(),
@@ -471,7 +581,7 @@ export class DevicesService {
 
     let removedCount = 0;
     if (!dryRun && invalidDevices.length > 0) {
-      const deviceIds = invalidDevices.map(d => d.deviceId);
+      const deviceIds = invalidDevices.map((d) => d.deviceId);
       const deleteResult = await this.deviceModel
         .updateMany(
           {
@@ -557,7 +667,9 @@ export class DevicesService {
       throw new NotFoundException('Device not found');
     }
 
-    this.logger.log(`Removed tags [${tags.join(', ')}] from device ${deviceId}`);
+    this.logger.log(
+      `Removed tags [${tags.join(', ')}] from device ${deviceId}`,
+    );
     return device;
   }
 
@@ -598,9 +710,9 @@ export class DevicesService {
   async updateProperties(
     projectId: string,
     deviceId: string,
-    properties: Record<string, any>,
+    properties: Record<string, unknown>,
   ): Promise<Device> {
-    const updateFields: any = {
+    const updateFields: Record<string, unknown> = {
       lastActiveAt: new Date(),
     };
 
@@ -661,7 +773,9 @@ export class DevicesService {
       throw new NotFoundException('Device not found');
     }
 
-    this.logger.log(`Removed properties [${propertyKeys.join(', ')}] from device ${deviceId}`);
+    this.logger.log(
+      `Removed properties [${propertyKeys.join(', ')}] from device ${deviceId}`,
+    );
     return device;
   }
 
@@ -685,7 +799,9 @@ export class DevicesService {
   /**
    * Get tag statistics for a project
    */
-  async getTagStats(projectId: string): Promise<Array<{ tag: string; count: number }>> {
+  async getTagStats(
+    projectId: string,
+  ): Promise<Array<{ tag: string; count: number }>> {
     const result = await this.deviceModel
       .aggregate([
         { $match: { projectId: new Types.ObjectId(projectId) } },
@@ -708,7 +824,8 @@ export class DevicesService {
       .select('properties')
       .exec();
 
-    const propertyStats: Record<string, { count: number; values: Set<any> }> = {};
+    const propertyStats: Record<string, { count: number; values: Set<any> }> =
+      {};
 
     devices.forEach((device) => {
       if (device.properties) {
@@ -723,7 +840,7 @@ export class DevicesService {
     });
 
     // Convert Sets to arrays and limit values for response size
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     Object.keys(propertyStats).forEach((key) => {
       const values = Array.from(propertyStats[key].values);
       result[key] = {
@@ -739,12 +856,12 @@ export class DevicesService {
   /**
    * Build MongoDB query from segment query
    */
-  private buildSegmentQuery(projectId: string, segment: SegmentQuery): any {
-    const baseQuery: any = { 
-      projectId: new Types.ObjectId(projectId) 
+  private buildSegmentQuery(projectId: string, segment: SegmentQuery): Record<string, unknown> {
+    const baseQuery: Record<string, unknown> = {
+      projectId: new Types.ObjectId(projectId),
     };
 
-    const conditions: any[] = [];
+    const conditions: Record<string, unknown>[] = [];
 
     // Platform filter
     if (segment.platforms?.platforms.length) {
@@ -779,20 +896,30 @@ export class DevicesService {
     if (segment.activity) {
       if (segment.activity.lastActiveWithinDays !== undefined) {
         const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - segment.activity.lastActiveWithinDays);
+        cutoffDate.setDate(
+          cutoffDate.getDate() - segment.activity.lastActiveWithinDays,
+        );
         conditions.push({ lastActiveAt: { $gte: cutoffDate } });
       }
 
       if (segment.activity.minNotificationsSent !== undefined) {
-        conditions.push({ notificationsSent: { $gte: segment.activity.minNotificationsSent } });
+        conditions.push({
+          notificationsSent: { $gte: segment.activity.minNotificationsSent },
+        });
       }
 
       if (segment.activity.maxNotificationsSent !== undefined) {
-        conditions.push({ notificationsSent: { $lte: segment.activity.maxNotificationsSent } });
+        conditions.push({
+          notificationsSent: { $lte: segment.activity.maxNotificationsSent },
+        });
       }
 
       if (segment.activity.minNotificationsOpened !== undefined) {
-        conditions.push({ notificationsOpened: { $gte: segment.activity.minNotificationsOpened } });
+        conditions.push({
+          notificationsOpened: {
+            $gte: segment.activity.minNotificationsOpened,
+          },
+        });
       }
     }
 
@@ -802,7 +929,7 @@ export class DevicesService {
 
       segment.properties.forEach((prop) => {
         const fieldPath = `properties.${prop.property}`;
-        let condition: any = {};
+        const condition: any = {};
 
         switch (prop.operator) {
           case PropertyOperator.EQUALS:
@@ -831,18 +958,24 @@ export class DevicesService {
 
           case PropertyOperator.NOT_CONTAINS:
             if (typeof prop.value === 'string') {
-              condition[fieldPath] = { $not: { $regex: prop.value, $options: 'i' } };
+              condition[fieldPath] = {
+                $not: { $regex: prop.value, $options: 'i' },
+              };
             } else if (Array.isArray(prop.value)) {
               condition[fieldPath] = { $nin: prop.value };
             }
             break;
 
           case PropertyOperator.IN:
-            condition[fieldPath] = { $in: Array.isArray(prop.value) ? prop.value : [prop.value] };
+            condition[fieldPath] = {
+              $in: Array.isArray(prop.value) ? prop.value : [prop.value],
+            };
             break;
 
           case PropertyOperator.NOT_IN:
-            condition[fieldPath] = { $nin: Array.isArray(prop.value) ? prop.value : [prop.value] };
+            condition[fieldPath] = {
+              $nin: Array.isArray(prop.value) ? prop.value : [prop.value],
+            };
             break;
 
           case PropertyOperator.EXISTS:
@@ -861,7 +994,7 @@ export class DevicesService {
         conditions.push(
           segment.operator === SegmentOperator.OR
             ? { $or: propertyConditions }
-            : { $and: propertyConditions }
+            : { $and: propertyConditions },
         );
       }
     }
@@ -981,9 +1114,11 @@ export class DevicesService {
     queryExplanation: string;
   }> {
     const mongoQuery = this.buildSegmentQuery(projectId, segment);
-    
+
     // Get estimated count
-    const estimatedCount = await this.deviceModel.countDocuments(mongoQuery).exec();
+    const estimatedCount = await this.deviceModel
+      .countDocuments(mongoQuery)
+      .exec();
 
     // Get sample devices (limit to 5 for preview)
     const sampleDevices = await this.deviceModel
@@ -1015,7 +1150,8 @@ export class DevicesService {
     }
 
     if (segment.tags?.tags.length) {
-      const operator = segment.tags.operator === SegmentOperator.AND ? 'all of' : 'any of';
+      const operator =
+        segment.tags.operator === SegmentOperator.AND ? 'all of' : 'any of';
       parts.push(`Tags: ${operator} [${segment.tags.tags.join(', ')}]`);
     }
 
@@ -1039,7 +1175,8 @@ export class DevicesService {
       parts.push(`Properties: ${propDescriptions.join(', ')}`);
     }
 
-    const conjunction = segment.operator === SegmentOperator.OR ? ' OR ' : ' AND ';
+    const conjunction =
+      segment.operator === SegmentOperator.OR ? ' OR ' : ' AND ';
     return parts.length > 0 ? parts.join(conjunction) : 'All devices';
   }
 
@@ -1073,7 +1210,8 @@ export class DevicesService {
 
       return await device.save();
     } catch (error) {
-      if (error.code === 11000) {
+      const errorObj = error;
+      if (errorObj.code === 11000) {
         throw new ConflictException('Device already registered');
       }
       throw error;

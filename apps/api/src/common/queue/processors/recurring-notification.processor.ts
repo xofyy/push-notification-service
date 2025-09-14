@@ -9,24 +9,22 @@ import { QueueService } from '../queue.service';
 export class RecurringNotificationProcessor extends WorkerHost {
   private readonly logger = new Logger(RecurringNotificationProcessor.name);
 
-  constructor(
-    private readonly queueService: QueueService,
-  ) {
+  constructor(private readonly queueService: QueueService) {
     super();
   }
 
   async process(job: Job<RecurringJobData>): Promise<any> {
-    const { 
-      projectId, 
-      payload, 
-      targeting, 
-      options, 
+    const {
+      projectId,
+      payload,
+      targeting,
+      options,
       schedule,
       startDate,
       endDate,
-      maxExecutions 
+      maxExecutions,
     } = job.data;
-    
+
     this.logger.log(
       `Processing recurring notification job ${job.id} for project ${projectId}`,
     );
@@ -37,38 +35,53 @@ export class RecurringNotificationProcessor extends WorkerHost {
 
       // Check if we're within the execution window
       const now = new Date();
-      
+
       if (startDate && now < new Date(startDate)) {
         this.logger.warn(
           `Recurring job ${job.id} executed before start date. Start: ${startDate}, Current: ${now}`,
         );
-        return this.createSkippedResult(job.id!, projectId, 'before_start_date', now);
+        return this.createSkippedResult(
+          job.id!,
+          projectId,
+          'before_start_date',
+          now,
+        );
       }
 
       if (endDate && now > new Date(endDate)) {
         this.logger.log(
           `Recurring job ${job.id} has passed end date. Removing from schedule.`,
         );
-        
+
         // Remove the recurring job
         await job.remove();
-        
-        return this.createSkippedResult(job.id!, projectId, 'past_end_date', now);
+
+        return this.createSkippedResult(
+          job.id!,
+          projectId,
+          'past_end_date',
+          now,
+        );
       }
 
       // Check execution count if maxExecutions is set
       if (maxExecutions && job.opts.repeat) {
         const executionCount = await this.getExecutionCount(job);
-        
+
         if (executionCount >= maxExecutions) {
           this.logger.log(
             `Recurring job ${job.id} has reached max executions (${maxExecutions}). Removing from schedule.`,
           );
-          
+
           // Remove the recurring job
           await job.remove();
-          
-          return this.createSkippedResult(job.id!, projectId, 'max_executions_reached', now);
+
+          return this.createSkippedResult(
+            job.id!,
+            projectId,
+            'max_executions_reached',
+            now,
+          );
         }
       }
 
@@ -135,25 +148,26 @@ export class RecurringNotificationProcessor extends WorkerHost {
         nextExecution: await this.getNextExecutionTime(job),
         timestamp: new Date(),
       };
-
     } catch (error) {
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        `Failed to process recurring notification job ${job.id}: ${error.message}`,
-        error.stack,
+        `Failed to process recurring notification job ${job.id}: ${errorObj.message}`,
+        errorObj.stack,
       );
 
       // Record failure
-      await this.recordFailure(job.id!, projectId, error, new Date());
+      await this.recordFailure(job.id!, projectId, errorObj, new Date());
 
-      throw error;
+      throw errorObj;
     }
   }
 
   private createSkippedResult(
-    jobId: string, 
-    projectId: string, 
-    reason: string, 
-    timestamp: Date
+    jobId: string,
+    projectId: string,
+    reason: string,
+    timestamp: Date,
   ) {
     return {
       jobId,
@@ -168,14 +182,18 @@ export class RecurringNotificationProcessor extends WorkerHost {
     // This would typically query a database to get the actual execution count
     // For now, we'll use a simple approach based on job repeat count
     // In a real implementation, you'd store execution history in the database
-    
+
     try {
       // BullMQ doesn't provide direct access to execution count for repeating jobs
       // We'll implement a simple counter using job metadata or database
       const metadata = job.data.options?.metadata || {};
       return metadata.executionCount || 0;
     } catch (error) {
-      this.logger.error(`Failed to get execution count for job ${job.id}: ${error.message}`);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Failed to get execution count for job ${job.id}: ${errorObj.message}`,
+      );
       return 0;
     }
   }
@@ -185,7 +203,7 @@ export class RecurringNotificationProcessor extends WorkerHost {
       // Calculate next execution time based on schedule
       const { schedule } = job.data;
       const now = new Date();
-      
+
       if (schedule.type === 'interval') {
         const interval = schedule.value as number;
         return new Date(now.getTime() + interval);
@@ -194,10 +212,14 @@ export class RecurringNotificationProcessor extends WorkerHost {
         // For now, return null (would need cron-parser package)
         return null;
       }
-      
+
       return null;
     } catch (error) {
-      this.logger.error(`Failed to calculate next execution time for job ${job.id}: ${error.message}`);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Failed to calculate next execution time for job ${job.id}: ${errorObj.message}`,
+      );
       return null;
     }
   }
@@ -212,7 +234,7 @@ export class RecurringNotificationProcessor extends WorkerHost {
     this.logger.log(
       `Recording execution: Job ${jobId}, Project ${projectId}, Time ${executionTime}, Notification Job ${notificationJobId}`,
     );
-    
+
     // This would integrate with a recurring job execution tracking service
     // Store in database: recurring_job_executions table
   }
@@ -220,14 +242,14 @@ export class RecurringNotificationProcessor extends WorkerHost {
   private async recordFailure(
     jobId: string,
     projectId: string,
-    error: any,
+    error: Error,
     executionTime: Date,
   ): Promise<void> {
     // Record failed execution in database for debugging
     this.logger.error(
       `Recording failure: Job ${jobId}, Project ${projectId}, Time ${executionTime}, Error: ${error.message}`,
     );
-    
+
     // This would integrate with a failure tracking service
     // Store in database: recurring_job_failures table
   }

@@ -1,10 +1,19 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Template, TemplateDocument } from './schemas/template.schema';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
-import { RenderTemplateDto, ValidateTemplateDto } from './dto/render-template.dto';
+import {
+  RenderTemplateDto,
+  ValidateTemplateDto,
+} from './dto/render-template.dto';
 
 @Injectable()
 export class TemplatesService {
@@ -14,8 +23,13 @@ export class TemplatesService {
     @InjectModel(Template.name) private templateModel: Model<TemplateDocument>,
   ) {}
 
-  async create(projectId: string, createTemplateDto: CreateTemplateDto): Promise<Template> {
-    this.logger.log(`Creating template "${createTemplateDto.name}" for project ${projectId}`);
+  async create(
+    projectId: string,
+    createTemplateDto: CreateTemplateDto,
+  ): Promise<Template> {
+    this.logger.log(
+      `Creating template "${createTemplateDto.name}" for project ${projectId}`,
+    );
 
     const existingTemplate = await this.templateModel.findOne({
       projectId,
@@ -23,7 +37,9 @@ export class TemplatesService {
     });
 
     if (existingTemplate) {
-      throw new ConflictException(`Template with name "${createTemplateDto.name}" already exists`);
+      throw new ConflictException(
+        `Template with name "${createTemplateDto.name}" already exists`,
+      );
     }
 
     const variables = this.extractVariables(
@@ -48,18 +64,21 @@ export class TemplatesService {
     return template.save();
   }
 
-  async findAll(projectId: string, options?: {
-    status?: 'active' | 'inactive';
-    language?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<{ templates: Template[]; total: number }> {
+  async findAll(
+    projectId: string,
+    options?: {
+      status?: 'active' | 'inactive';
+      language?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<{ templates: Template[]; total: number }> {
     const query: any = { projectId };
-    
+
     if (options?.status) {
       query.status = options.status;
     }
-    
+
     if (options?.language) {
       query.language = options.language;
     }
@@ -82,7 +101,7 @@ export class TemplatesService {
 
   async findOne(projectId: string, id: string): Promise<Template> {
     const template = await this.templateModel.findOne({ projectId, _id: id });
-    
+
     if (!template) {
       throw new NotFoundException(`Template with ID ${id} not found`);
     }
@@ -92,7 +111,7 @@ export class TemplatesService {
 
   async findByName(projectId: string, name: string): Promise<Template> {
     const template = await this.templateModel.findOne({ projectId, name });
-    
+
     if (!template) {
       throw new NotFoundException(`Template with name "${name}" not found`);
     }
@@ -100,7 +119,11 @@ export class TemplatesService {
     return template;
   }
 
-  async update(projectId: string, id: string, updateTemplateDto: UpdateTemplateDto): Promise<Template> {
+  async update(
+    projectId: string,
+    id: string,
+    updateTemplateDto: UpdateTemplateDto,
+  ): Promise<Template> {
     this.logger.log(`Updating template ${id} for project ${projectId}`);
 
     const template = await this.findOne(projectId, id);
@@ -113,13 +136,20 @@ export class TemplatesService {
       });
 
       if (existingTemplate) {
-        throw new ConflictException(`Template with name "${updateTemplateDto.name}" already exists`);
+        throw new ConflictException(
+          `Template with name "${updateTemplateDto.name}" already exists`,
+        );
       }
     }
 
     const updateData: any = { ...updateTemplateDto };
 
-    if (updateTemplateDto.title || updateTemplateDto.body || updateTemplateDto.imageUrl || updateTemplateDto.data) {
+    if (
+      updateTemplateDto.title ||
+      updateTemplateDto.body ||
+      updateTemplateDto.imageUrl ||
+      updateTemplateDto.data
+    ) {
       const variables = this.extractVariables(
         updateTemplateDto.title || template.title,
         updateTemplateDto.body || template.body,
@@ -132,7 +162,7 @@ export class TemplatesService {
     const updatedTemplate = await this.templateModel.findOneAndUpdate(
       { projectId, _id: id },
       updateData,
-      { new: true }
+      { new: true },
     );
 
     if (!updatedTemplate) {
@@ -146,23 +176,28 @@ export class TemplatesService {
     this.logger.log(`Deleting template ${id} for project ${projectId}`);
 
     const result = await this.templateModel.deleteOne({ projectId, _id: id });
-    
+
     if (result.deletedCount === 0) {
       throw new NotFoundException(`Template with ID ${id} not found`);
     }
   }
 
-  async render(projectId: string, renderTemplateDto: RenderTemplateDto): Promise<{
+  async render(
+    projectId: string,
+    renderTemplateDto: RenderTemplateDto,
+  ): Promise<{
     title: string;
     body: string;
     imageUrl?: string;
-    data?: Record<string, any>;
-    variables: Record<string, any>;
+    data?: Record<string, unknown>;
+    variables: Record<string, unknown>;
   }> {
-    this.logger.log(`Rendering template "${renderTemplateDto.template}" for project ${projectId}`);
+    this.logger.log(
+      `Rendering template "${renderTemplateDto.template}" for project ${projectId}`,
+    );
 
     let template: Template;
-    
+
     if (renderTemplateDto.template.match(/^[0-9a-fA-F]{24}$/)) {
       template = await this.findOne(projectId, renderTemplateDto.template);
     } else {
@@ -173,9 +208,14 @@ export class TemplatesService {
       throw new BadRequestException('Cannot render inactive template');
     }
 
-    const validationResult = this.validateVariables(template, renderTemplateDto.variables);
+    const validationResult = this.validateVariables(
+      template,
+      renderTemplateDto.variables,
+    );
     if (!validationResult.isValid) {
-      throw new BadRequestException(`Template validation failed: ${validationResult.errors.join(', ')}`);
+      throw new BadRequestException(
+        `Template validation failed: ${validationResult.errors.join(', ')}`,
+      );
     }
 
     const mergedVariables = {
@@ -186,8 +226,12 @@ export class TemplatesService {
     const renderedContent = {
       title: this.substituteVariables(template.title, mergedVariables),
       body: this.substituteVariables(template.body, mergedVariables),
-      imageUrl: template.imageUrl ? this.substituteVariables(template.imageUrl, mergedVariables) : undefined,
-      data: template.data ? this.substituteObjectVariables(template.data, mergedVariables) : undefined,
+      imageUrl: template.imageUrl
+        ? this.substituteVariables(template.imageUrl, mergedVariables)
+        : undefined,
+      data: template.data
+        ? this.substituteObjectVariables(template.data, mergedVariables)
+        : undefined,
       variables: mergedVariables,
     };
 
@@ -198,7 +242,10 @@ export class TemplatesService {
     return renderedContent;
   }
 
-  async validate(projectId: string, validateTemplateDto: ValidateTemplateDto): Promise<{
+  async validate(
+    projectId: string,
+    validateTemplateDto: ValidateTemplateDto,
+  ): Promise<{
     isValid: boolean;
     variables: string[];
     errors: string[];
@@ -206,7 +253,7 @@ export class TemplatesService {
       title: string;
       body: string;
       imageUrl?: string;
-      data?: Record<string, any>;
+      data?: Record<string, unknown>;
     };
   }> {
     const variables = this.extractVariables(
@@ -220,10 +267,26 @@ export class TemplatesService {
 
     try {
       const preview = {
-        title: this.substituteVariables(validateTemplateDto.title, validateTemplateDto.testVariables),
-        body: this.substituteVariables(validateTemplateDto.body, validateTemplateDto.testVariables),
-        imageUrl: validateTemplateDto.imageUrl ? this.substituteVariables(validateTemplateDto.imageUrl, validateTemplateDto.testVariables) : undefined,
-        data: validateTemplateDto.data ? this.substituteObjectVariables(validateTemplateDto.data, validateTemplateDto.testVariables) : undefined,
+        title: this.substituteVariables(
+          validateTemplateDto.title,
+          validateTemplateDto.testVariables,
+        ),
+        body: this.substituteVariables(
+          validateTemplateDto.body,
+          validateTemplateDto.testVariables,
+        ),
+        imageUrl: validateTemplateDto.imageUrl
+          ? this.substituteVariables(
+              validateTemplateDto.imageUrl,
+              validateTemplateDto.testVariables,
+            )
+          : undefined,
+        data: validateTemplateDto.data
+          ? this.substituteObjectVariables(
+              validateTemplateDto.data,
+              validateTemplateDto.testVariables,
+            )
+          : undefined,
       };
 
       return {
@@ -266,7 +329,9 @@ export class TemplatesService {
       this.templateModel.countDocuments({ projectId, status: 'active' }),
       this.templateModel.aggregate([
         { $match: { projectId } },
-        { $group: { _id: null, totalUsage: { $sum: '$statistics.totalUsed' } } },
+        {
+          $group: { _id: null, totalUsage: { $sum: '$statistics.totalUsed' } },
+        },
       ]),
       this.templateModel
         .find({ projectId })
@@ -280,7 +345,7 @@ export class TemplatesService {
     ]);
 
     const languageDistribution: Record<string, number> = {};
-    languageStats.forEach(stat => {
+    languageStats.forEach((stat) => {
       languageDistribution[stat._id || 'default'] = stat.count;
     });
 
@@ -288,7 +353,7 @@ export class TemplatesService {
       totalTemplates,
       activeTemplates,
       totalUsage: usageStats[0]?.totalUsage || 0,
-      topTemplates: topTemplates.map(t => ({
+      topTemplates: topTemplates.map((t) => ({
         name: t.name,
         usage: t.statistics?.totalUsed || 0,
         successRate: t.statistics?.successRate || 0,
@@ -301,7 +366,7 @@ export class TemplatesService {
     title: string,
     body: string,
     imageUrl?: string,
-    data?: Record<string, any>,
+    data?: Record<string, unknown>,
   ): string[] {
     const variableSet = new Set<string>();
     const variableRegex = /\{\{(\w+)\}\}/g;
@@ -315,7 +380,7 @@ export class TemplatesService {
 
     extractFromString(title);
     extractFromString(body);
-    
+
     if (imageUrl) {
       extractFromString(imageUrl);
     }
@@ -328,21 +393,30 @@ export class TemplatesService {
     return Array.from(variableSet).sort();
   }
 
-  private substituteVariables(template: string, variables: Record<string, any>): string {
+  private substituteVariables(
+    template: string,
+    variables: Record<string, unknown>,
+  ): string {
     return template.replace(/\{\{(\w+)\}\}/g, (match, variableName) => {
       const value = variables[variableName];
       return value !== undefined ? String(value) : match;
     });
   }
 
-  private substituteObjectVariables(obj: Record<string, any>, variables: Record<string, any>): Record<string, any> {
-    const result: Record<string, any> = {};
-    
+  private substituteObjectVariables(
+    obj: Record<string, unknown>,
+    variables: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'string') {
         result[key] = this.substituteVariables(value, variables);
       } else if (typeof value === 'object' && value !== null) {
-        result[key] = this.substituteObjectVariables(value, variables);
+        result[key] = this.substituteObjectVariables(
+          value as Record<string, unknown>,
+          variables,
+        );
       } else {
         result[key] = value;
       }
@@ -351,7 +425,10 @@ export class TemplatesService {
     return result;
   }
 
-  private validateVariables(template: Template, variables: Record<string, any>): {
+  private validateVariables(
+    template: Template,
+    variables: Record<string, unknown>,
+  ): {
     isValid: boolean;
     errors: string[];
   } {
@@ -359,14 +436,20 @@ export class TemplatesService {
 
     if (template.validationRules?.required) {
       for (const requiredVar of template.validationRules.required) {
-        if (!(requiredVar in variables) || variables[requiredVar] === null || variables[requiredVar] === undefined) {
+        if (
+          !(requiredVar in variables) ||
+          variables[requiredVar] === null ||
+          variables[requiredVar] === undefined
+        ) {
           errors.push(`Required variable "${requiredVar}" is missing`);
         }
       }
     }
 
     if (template.validationRules?.formats) {
-      for (const [varName, pattern] of Object.entries(template.validationRules.formats)) {
+      for (const [varName, pattern] of Object.entries(
+        template.validationRules.formats,
+      )) {
         const value = variables[varName];
         if (value !== undefined && typeof value === 'string') {
           const regex = new RegExp(pattern);
@@ -378,14 +461,20 @@ export class TemplatesService {
     }
 
     if (template.validationRules?.ranges) {
-      for (const [varName, range] of Object.entries(template.validationRules.ranges)) {
+      for (const [varName, range] of Object.entries(
+        template.validationRules.ranges,
+      )) {
         const value = variables[varName];
         if (value !== undefined && typeof value === 'number') {
           if (range.min !== undefined && value < range.min) {
-            errors.push(`Variable "${varName}" is below minimum value ${range.min}`);
+            errors.push(
+              `Variable "${varName}" is below minimum value ${range.min}`,
+            );
           }
           if (range.max !== undefined && value > range.max) {
-            errors.push(`Variable "${varName}" exceeds maximum value ${range.max}`);
+            errors.push(
+              `Variable "${varName}" exceeds maximum value ${range.max}`,
+            );
           }
         }
       }
@@ -397,7 +486,10 @@ export class TemplatesService {
     };
   }
 
-  private async updateStatistics(templateId: string, success: boolean): Promise<void> {
+  private async updateStatistics(
+    templateId: string,
+    success: boolean,
+  ): Promise<void> {
     const update: any = {
       $inc: { 'statistics.totalUsed': 1 },
       $set: { 'statistics.lastUsed': new Date() },
@@ -408,8 +500,10 @@ export class TemplatesService {
       if (template) {
         const totalUsed = template.statistics?.totalUsed || 0;
         const currentSuccessRate = template.statistics?.successRate || 100;
-        const newSuccessRate = ((currentSuccessRate * totalUsed) + 100) / (totalUsed + 1);
-        update.$set['statistics.successRate'] = Math.round(newSuccessRate * 100) / 100;
+        const newSuccessRate =
+          (currentSuccessRate * totalUsed + 100) / (totalUsed + 1);
+        update.$set['statistics.successRate'] =
+          Math.round(newSuccessRate * 100) / 100;
       }
     }
 

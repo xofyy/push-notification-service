@@ -6,34 +6,34 @@ export type TemplateDocument = Template & Document;
 @Schema({ timestamps: true })
 export class Template {
   @Prop({ required: true })
-  projectId: string;
+  projectId!: string;
 
   @Prop({ required: true })
-  name: string;
+  name!: string;
 
   @Prop()
   description?: string;
 
   @Prop({ required: true })
-  title: string;
+  title!: string;
 
   @Prop({ required: true })
-  body: string;
+  body!: string;
 
   @Prop()
   imageUrl?: string;
 
   @Prop({ type: Object, default: {} })
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 
   @Prop({ type: [String], default: [] })
-  variables: string[];
+  variables!: string[];
 
   @Prop({ enum: ['active', 'inactive'], default: 'active' })
-  status: 'active' | 'inactive';
+  status!: 'active' | 'inactive';
 
   @Prop({ type: Object, default: {} })
-  defaultValues?: Record<string, any>;
+  defaultValues?: Record<string, unknown>;
 
   @Prop()
   language?: string;
@@ -53,7 +53,7 @@ export class Template {
   };
 
   @Prop()
-  version: number;
+  version!: number;
 
   @Prop()
   createdBy?: string;

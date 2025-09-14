@@ -16,7 +16,7 @@ export interface WebPushNotificationPayload {
   icon?: string;
   image?: string;
   badge?: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   actions?: Array<{
     action: string;
     title: string;
@@ -60,7 +60,7 @@ export interface WebPushSendResult {
 export class WebPushService implements OnModuleInit {
   private readonly logger = new Logger(WebPushService.name);
   private isInitialized = false;
-  private vapidDetails: {
+  private vapidDetails?: {
     publicKey: string;
     privateKey: string;
     subject: string;
@@ -103,9 +103,11 @@ export class WebPushService implements OnModuleInit {
       this.isInitialized = true;
       this.logger.log('✅ Web Push service initialized successfully');
     } catch (error) {
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
       this.logger.error(
         '❌ Failed to initialize Web Push service:',
-        error.message,
+        errorObj.message,
       );
       this.isInitialized = false;
     }
@@ -266,8 +268,10 @@ export class WebPushService implements OnModuleInit {
 
       return sendResult;
     } catch (error) {
-      this.logger.error('Web Push send error:', error.message);
-      throw error;
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.error('Web Push send error:', errorObj.message);
+      throw errorObj;
     }
   }
 
@@ -359,7 +363,9 @@ export class WebPushService implements OnModuleInit {
 
       return true;
     } catch (error) {
-      this.logger.warn('Subscription validation error:', error.message);
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error));
+      this.logger.warn('Subscription validation error:', errorObj.message);
       return false;
     }
   }
