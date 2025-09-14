@@ -4,7 +4,7 @@
     "/api/v1/projects": {
       "post": {
         "description": "Creates a new push notification project with auto-generated API key and configuration.",
-        "operationId": "create",
+        "operationId": "Projects_Create",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -60,14 +60,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "example": {
-                    "statusCode": 400,
-                    "message": [
-                      "name should not be empty",
-                      "name must be a string"
-                    ],
-                    "error": "Bad Request"
-                  }
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -85,7 +78,7 @@
       },
       "get": {
         "description": "Returns the project associated with the provided API key.",
-        "operationId": "findAll",
+        "operationId": "Projects_GetCurrent",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -138,11 +131,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "example": {
-                    "statusCode": 401,
-                    "message": "API key is required. Please provide X-API-Key header.",
-                    "error": "Unauthorized"
-                  }
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -320,7 +309,7 @@
     "/api/v1/projects/{id}/regenerate-api-key": {
       "post": {
         "description": "Generates a new API key for the project. The old API key will become invalid immediately.",
-        "operationId": "regenerateApiKey",
+        "operationId": "Projects_RotateApiKey",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -360,7 +349,14 @@
             }
           },
           "403": {
-            "description": "Access denied - can only regenerate API key for own project"
+            "description": "Access denied - can only regenerate API key for own project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -444,11 +440,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "example": {
-                    "statusCode": 400,
-                    "message": "Invalid FCM token format",
-                    "error": "Bad Request"
-                  }
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -460,6 +452,83 @@
           }
         ],
         "summary": "Register device",
+        "tags": [
+          "Devices"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/devices": {
+      "get": {
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "description": "API Key for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tags",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topics",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "isActive",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
         "tags": [
           "Devices"
         ]
@@ -698,83 +767,6 @@
             "name": "id",
             "required": true,
             "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ],
-        "tags": [
-          "Devices"
-        ]
-      }
-    },
-    "/api/v1/projects/{projectId}/devices": {
-      "get": {
-        "operationId": "findAll",
-        "parameters": [
-          {
-            "name": "X-API-Key",
-            "in": "header",
-            "description": "API Key for authentication",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "projectId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "platform",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tags",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "topics",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "isActive",
-            "required": true,
-            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -1618,6 +1610,14 @@
               "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -1675,14 +1675,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "example": {
-                    "statusCode": 400,
-                    "message": [
-                      "title should not be empty",
-                      "recipients must be an array"
-                    ],
-                    "error": "Bad Request"
-                  }
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -1725,7 +1718,7 @@
     "/api/v1/projects/{projectId}/notifications": {
       "get": {
         "description": "Retrieves a paginated list of notifications with optional filtering by status and type.",
-        "operationId": "findAll",
+        "operationId": "Notifications_List",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1788,44 +1781,62 @@
             }
           },
           {
-            "name": "skip",
+            "name": "offset",
             "required": false,
             "in": "query",
-            "description": "Number of notifications to skip for pagination",
+            "description": "Number of notifications to skip (offset)",
             "schema": {
               "example": 0,
               "type": "number"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "createdAt",
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Notifications retrieved successfully",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "example": {
-                    "notifications": [
-                      {
-                        "id": "64f1a2b3c4d5e6f7a8b9c0d2",
-                        "status": "sent",
-                        "type": "push",
-                        "title": "Welcome!",
-                        "body": "Thanks for installing our app!",
-                        "recipients": {
-                          "total": 150,
-                          "successful": 148,
-                          "failed": 2
-                        },
-                        "sentAt": "2023-12-07T16:30:00.000Z",
-                        "createdAt": "2023-12-07T16:30:00.000Z"
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Notification"
                       }
-                    ],
-                    "pagination": {
-                      "total": 1250,
-                      "limit": 20,
-                      "skip": 0,
-                      "hasNext": true
+                    },
+                    "total": {
+                      "type": "number",
+                      "example": 1250
+                    },
+                    "limit": {
+                      "type": "number",
+                      "example": 20
+                    },
+                    "offset": {
+                      "type": "number",
+                      "example": 0
                     }
                   }
                 }
@@ -1891,7 +1902,7 @@
     },
     "/api/v1/projects/{projectId}/notifications/{id}": {
       "get": {
-        "operationId": "findOne",
+        "operationId": "Notifications_GetById",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1920,8 +1931,15 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": ""
+          "404": {
+            "description": "Notification not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1929,6 +1947,7 @@
             "ApiKeyAuth": []
           }
         ],
+        "summary": "Get notification by id",
         "tags": [
           "Notifications"
         ]
@@ -1936,7 +1955,7 @@
     },
     "/api/v1/projects/{projectId}/notifications/{id}/cancel": {
       "patch": {
-        "operationId": "cancel",
+        "operationId": "Notifications_Cancel",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1965,8 +1984,15 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": ""
+          "404": {
+            "description": "Notification not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1974,6 +2000,7 @@
             "ApiKeyAuth": []
           }
         ],
+        "summary": "Cancel a scheduled/recurring notification",
         "tags": [
           "Notifications"
         ]
@@ -2556,7 +2583,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/events": {
       "post": {
-        "operationId": "trackEvent",
+        "operationId": "Analytics_TrackEvent",
         "parameters": [
           {
             "name": "projectId",
@@ -2581,6 +2608,16 @@
         "responses": {
           "201": {
             "description": "Event tracked successfully"
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Track a single analytics event",
@@ -2614,7 +2651,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/events/batch": {
       "post": {
-        "operationId": "trackBatchEvents",
+        "operationId": "Analytics_TrackBatch",
         "parameters": [
           {
             "name": "projectId",
@@ -2639,6 +2676,16 @@
         "responses": {
           "201": {
             "description": "Batch events tracked successfully"
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Track multiple analytics events in batch",
@@ -2649,7 +2696,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/overview": {
       "get": {
-        "operationId": "getOverview",
+        "operationId": "Analytics_Overview",
         "parameters": [
           {
             "name": "projectId",
@@ -2799,7 +2846,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/export": {
       "get": {
-        "operationId": "exportAnalytics",
+        "operationId": "Analytics_Export",
         "parameters": [
           {
             "name": "projectId",
@@ -2830,6 +2877,30 @@
           }
         },
         "summary": "Export analytics data",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/analytics/realtime-sse": {
+      "get": {
+        "operationId": "realtimeSSE",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Server-Sent Events for real-time analytics (last hour, updates every 30s)",
         "tags": [
           "Analytics"
         ]
@@ -3024,6 +3095,115 @@
           "App"
         ]
       }
+    },
+    "/api/v1/projects/{projectId}/webhooks": {
+      "get": {
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List project webhooks",
+        "tags": [
+          "Webhooks"
+        ]
+      },
+      "post": {
+        "operationId": "add",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a project webhook",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/webhooks/{index}": {
+      "post": {
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "index",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Update a webhook by index",
+        "tags": [
+          "Webhooks"
+        ]
+      },
+      "delete": {
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "index",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Remove a webhook by index",
+        "tags": [
+          "Webhooks"
+        ]
+      }
     }
   },
   "info": {
@@ -3098,11 +3278,50 @@
         "type": "object",
         "properties": {}
       },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "object",
+            "example": "Validation failed"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2025-01-01T10:00:00.000Z"
+          },
+          "path": {
+            "type": "string",
+            "example": "/api/v1/projects/123/notifications/send"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message",
+          "timestamp",
+          "path"
+        ]
+      },
       "UpdateProjectDto": {
         "type": "object",
         "properties": {}
       },
       "RegisterDeviceDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "Device": {
         "type": "object",
         "properties": {}
       },
@@ -3269,6 +3488,10 @@
           "body"
         ]
       },
+      "Notification": {
+        "type": "object",
+        "properties": {}
+      },
       "CreateTemplateDto": {
         "type": "object",
         "properties": {
@@ -3358,6 +3581,10 @@
           "title",
           "body"
         ]
+      },
+      "Template": {
+        "type": "object",
+        "properties": {}
       },
       "RenderTemplateDto": {
         "type": "object",

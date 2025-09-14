@@ -129,6 +129,10 @@ export class Notification {
 
   @Prop({ type: Object })
   templateVariables?: Record<string, any>;
+
+  // Idempotency support
+  @Prop({ trim: true })
+  idempotencyKey?: string;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
@@ -141,6 +145,7 @@ NotificationSchema.index({ expiresAt: 1 });
 NotificationSchema.index({ createdAt: -1 });
 NotificationSchema.index({ targetTags: 1 });
 NotificationSchema.index({ targetTopics: 1 });
+NotificationSchema.index({ projectId: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $exists: true } } });
 
 // TTL index for completed notifications (30 days)
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2592000 });

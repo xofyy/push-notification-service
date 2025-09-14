@@ -34,6 +34,9 @@ import {
   HighFrequencyRateLimit,
 } from '../../common/decorators/rate-limit.decorator';
 import { Project } from '../projects/schemas/project.schema';
+import { ApiPaginatedResponse } from '../../common/dto/paginated-response.decorator';
+import { Template } from './schemas/template.schema';
+import { ErrorResponseDto } from '../../common/dto/error-response.dto';
 
 @ApiTags('Templates')
 @Controller('projects/:projectId/templates')
@@ -92,6 +95,7 @@ export class TemplatesController {
   })
   @ApiResponse({ status: 200, description: 'Templates retrieved successfully' })
   @MediumFrequencyRateLimit() // 300 requests per minute for template listing
+  @ApiPaginatedResponse(Template as any)
   findAll(
     @Param('projectId') projectId: string,
     @CurrentProject() project: Project,
@@ -129,7 +133,7 @@ export class TemplatesController {
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiParam({ name: 'id', description: 'Template ID' })
   @ApiResponse({ status: 200, description: 'Template retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Template not found' })
+  @ApiResponse({ status: 404, description: 'Template not found', type: ErrorResponseDto })
   findOne(
     @Param('projectId') projectId: string,
     @Param('id') id: string,
@@ -144,7 +148,7 @@ export class TemplatesController {
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiParam({ name: 'name', description: 'Template name' })
   @ApiResponse({ status: 200, description: 'Template retrieved successfully' })
-  @ApiResponse({ status: 404, description: 'Template not found' })
+  @ApiResponse({ status: 404, description: 'Template not found', type: ErrorResponseDto })
   findByName(
     @Param('projectId') projectId: string,
     @Param('name') name: string,
@@ -160,6 +164,7 @@ export class TemplatesController {
   @ApiResponse({ status: 200, description: 'Template rendered successfully' })
   @ApiResponse({ status: 400, description: 'Template validation failed' })
   @ApiResponse({ status: 404, description: 'Template not found' })
+  @ApiResponse({ status: 404, description: 'Template not found', type: ErrorResponseDto })
   @HttpCode(HttpStatus.OK)
   @HighFrequencyRateLimit() // 100 requests per minute for template rendering
   render(
@@ -210,7 +215,7 @@ export class TemplatesController {
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiParam({ name: 'id', description: 'Template ID' })
   @ApiResponse({ status: 200, description: 'Template deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Template not found' })
+  @ApiResponse({ status: 404, description: 'Template not found', type: ErrorResponseDto })
   @HttpCode(HttpStatus.OK)
   remove(
     @Param('projectId') projectId: string,

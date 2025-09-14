@@ -2,11 +2,14 @@ import { Module, DynamicModule, Global } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { DevicesModule } from '../../modules/devices/devices.module';
+import { AnalyticsModule } from '../../modules/analytics/analytics.module';
+import { WebhooksModule } from '../../modules/webhooks/webhooks.module';
 import { QueueService } from './queue.service';
 import { NotificationProcessor } from './processors/notification.processor';
 import { ScheduledNotificationProcessor } from './processors/scheduled-notification.processor';
 import { BatchNotificationProcessor } from './processors/batch-notification.processor';
 import { RecurringNotificationProcessor } from './processors/recurring-notification.processor';
+import { WebhookProcessor } from './processors/webhook.processor';
 import { NotificationModule } from '../../providers/notification/notification.module';
 
 @Global()
@@ -20,7 +23,13 @@ export class QueueModule {
     const enableQueues =
       (process.env.ENABLE_QUEUE_SYSTEM ?? 'true') !== 'false' && !!redisUrl;
 
-    const imports: any[] = [ConfigModule, NotificationModule, DevicesModule];
+    const imports: any[] = [
+      ConfigModule,
+      NotificationModule,
+      DevicesModule,
+      AnalyticsModule,
+      WebhooksModule,
+    ];
 
     if (enableQueues) {
       // Parse Redis URL for BullMQ/ioredis options
@@ -41,6 +50,7 @@ export class QueueModule {
             { name: 'scheduled-queue' },
             { name: 'batch-queue' },
             { name: 'recurring-queue' },
+            { name: 'webhook-queue' },
           ),
         );
         console.log('✅ BullMQ configured for queues');
@@ -64,6 +74,7 @@ export class QueueModule {
         ScheduledNotificationProcessor,
         BatchNotificationProcessor,
         RecurringNotificationProcessor,
+        WebhookProcessor,
       ],
       exports: [QueueService],
     };

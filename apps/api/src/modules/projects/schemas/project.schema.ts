@@ -67,6 +67,9 @@ export class Project {
 
   @Prop({ type: Object, default: {} })
   settings!: Record<string, any>;
+
+  @Prop({ trim: true })
+  webhookSecret?: string;
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);

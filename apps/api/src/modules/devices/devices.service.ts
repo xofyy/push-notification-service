@@ -24,6 +24,45 @@ export class DevicesService {
     @InjectModel(Device.name) private deviceModel: Model<DeviceDocument>,
   ) {}
 
+  async listByProject(
+    projectId: string,
+    options: {
+      platform?: Platform;
+      tag?: string;
+      active?: boolean;
+      limit?: number;
+      offset?: number;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    } = {},
+  ): Promise<{ items: Device[]; total: number; limit: number; offset: number }> {
+    const query: any = { projectId: new Types.ObjectId(projectId) };
+    if (options.platform) query.platform = options.platform;
+    if (options.active !== undefined) query.isActive = !!options.active;
+    if (options.tag) query.tags = options.tag;
+
+    const sort: any = {};
+    const sortField = options.sortBy || 'createdAt';
+    const sortDir = options.sortOrder === 'asc' ? 1 : -1;
+    sort[sortField] = sortDir;
+
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const [items, total] = await Promise.all([
+      this.deviceModel
+        .find(query)
+        .sort(sort)
+        .skip(offset)
+        .limit(limit)
+        .select('-__v')
+        .exec(),
+      this.deviceModel.countDocuments(query).exec(),
+    ]);
+
+    return { items, total, limit, offset };
+  }
+
   /**
    * Resolve devices by IDs and return tokens/platforms for sending
    */

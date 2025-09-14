@@ -10,6 +10,7 @@ import {
   HttpStatus,
   ForbiddenException,
 } from '@nestjs/common';
+import { Headers } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -18,6 +19,7 @@ import {
   ApiQuery,
   ApiSecurity,
   ApiHeader,
+  ApiBody,
 } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
@@ -34,6 +36,9 @@ import {
   MediumFrequencyRateLimit,
 } from '../../common/decorators/rate-limit.decorator';
 import { Project } from '../projects/schemas/project.schema';
+import { ApiPaginatedResponse } from '../../common/dto/paginated-response.decorator';
+import { Notification } from './schemas/notification.schema';
+import { ErrorResponseDto } from '../../common/dto/error-response.dto';
 
 @ApiTags('Notifications')
 @Controller('projects/:projectId/notifications')
@@ -101,16 +106,34 @@ export class NotificationsController {
       },
     },
   })
+  @ApiBody({
+    description: 'Send payload (examples for instant and scheduled)',
+    examples: {
+      instant: {
+        summary: 'Instant send to deviceId',
+        value: {
+          title: 'Hello from API',
+          body: 'Quick flow test',
+          type: 'instant',
+          targetDevices: ['64f1a2b3c4d5e6f7a8b9c0ff'],
+        },
+      },
+      scheduled: {
+        summary: 'Scheduled send to tag segment',
+        value: {
+          title: 'Scheduled promo',
+          body: 'Sale starts soon',
+          type: 'scheduled',
+          scheduledFor: '2025-12-31T23:50:00.000Z',
+          targetTags: ['promo'],
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 400,
     description: 'Invalid notification data',
-    schema: {
-      example: {
-        statusCode: 400,
-        message: ['title should not be empty', 'recipients must be an array'],
-        error: 'Bad Request',
-      },
-    },
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 429,
@@ -133,15 +156,17 @@ export class NotificationsController {
   send(
     @Param('projectId') projectId: string,
     @Body() sendNotificationDto: SendNotificationDto,
+    @Headers('Idempotency-Key') idempotencyKey: string,
     @CurrentProject() project: Project,
   ) {
     this.validateProjectAccess(projectId, project);
-    return this.notificationsService.send(projectId, sendNotificationDto);
+    return this.notificationsService.send(projectId, sendNotificationDto, idempotencyKey);
   }
 
   @Get()
   @MediumFrequencyRateLimit() // 300 requests per minute
   @ApiOperation({
+    operationId: 'Notifications_List',
     summary: 'List notifications',
     description:
       'Retrieves a paginated list of notifications with optional filtering by status and type.',
@@ -173,55 +198,35 @@ export class NotificationsController {
     example: 20,
   })
   @ApiQuery({
-    name: 'skip',
+    name: 'offset',
     required: false,
     type: Number,
-    description: 'Number of notifications to skip for pagination',
+    description: 'Number of notifications to skip (offset)',
     example: 0,
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Notifications retrieved successfully',
-    schema: {
-      example: {
-        notifications: [
-          {
-            id: '64f1a2b3c4d5e6f7a8b9c0d2',
-            status: 'sent',
-            type: 'push',
-            title: 'Welcome!',
-            body: 'Thanks for installing our app!',
-            recipients: { total: 150, successful: 148, failed: 2 },
-            sentAt: '2023-12-07T16:30:00.000Z',
-            createdAt: '2023-12-07T16:30:00.000Z',
-          },
-        ],
-        pagination: {
-          total: 1250,
-          limit: 20,
-          skip: 0,
-          hasNext: true,
-        },
-      },
-    },
-  })
+  @ApiQuery({ name: 'sortBy', required: false, type: String, example: 'createdAt' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], example: 'desc' })
+  @ApiPaginatedResponse(Notification as any)
   findAll(
     @Param('projectId') projectId: string,
     @CurrentProject() project: Project,
     @Query('status') status?: NotificationStatus,
     @Query('type') type?: NotificationType,
     @Query('limit') limit?: string,
-    @Query('skip') skip?: string,
+    @Query('offset') offset?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     this.validateProjectAccess(projectId, project);
-    const filters: any = {};
-
-    if (status) filters.status = status;
-    if (type) filters.type = type;
-    if (limit) filters.limit = parseInt(limit, 10);
-    if (skip) filters.skip = parseInt(skip, 10);
-
-    return this.notificationsService.findByProject(projectId, filters);
+    const options: any = {
+      status,
+      type,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+      sortBy,
+      sortOrder,
+    };
+    return this.notificationsService.listByProject(projectId, options);
   }
 
   @Get('stats')
@@ -236,6 +241,8 @@ export class NotificationsController {
   }
 
   @Get(':id')
+  @ApiOperation({ operationId: 'Notifications_GetById', summary: 'Get notification by id' })
+  @ApiResponse({ status: 404, description: 'Notification not found', type: ErrorResponseDto })
   findOne(
     @Param('projectId') projectId: string,
     @Param('id') id: string,
@@ -246,6 +253,8 @@ export class NotificationsController {
   }
 
   @Patch(':id/cancel')
+  @ApiOperation({ operationId: 'Notifications_Cancel', summary: 'Cancel a scheduled/recurring notification' })
+  @ApiResponse({ status: 404, description: 'Notification not found', type: ErrorResponseDto })
   cancel(
     @Param('projectId') projectId: string,
     @Param('id') id: string,

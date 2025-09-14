@@ -5,6 +5,8 @@ import { NotificationJobData } from '../queue.service';
 import { NotificationService } from '../../../providers/notification/notification.service';
 import { DevicesService } from '../../../modules/devices/devices.service';
 import { Platform } from '../../../modules/devices/schemas/device.schema';
+import { AnalyticsService } from '../../../modules/analytics/analytics.service';
+import { WebhooksService } from '../../../modules/webhooks/webhooks.service';
 
 @Injectable()
 @Processor('notification-queue')
@@ -14,6 +16,8 @@ export class NotificationProcessor extends WorkerHost {
   constructor(
     private readonly notificationService: NotificationService,
     private readonly devicesService: DevicesService,
+    private readonly analyticsService: AnalyticsService,
+    private readonly webhooksService: WebhooksService,
   ) {
     super();
   }
@@ -80,6 +84,13 @@ export class NotificationProcessor extends WorkerHost {
         throw new Error('No valid targets found for notification');
       }
 
+      // Emit queued event
+      await this.analyticsService.trackEvent(projectId, {
+        type: 'notification.queued',
+        notificationId: job.id as any,
+        data: { jobId: job.id },
+      } as any);
+
       // Send notification using unified service
       const result = await this.notificationService.sendUnified(unifiedOptions);
 
@@ -94,6 +105,27 @@ export class NotificationProcessor extends WorkerHost {
           result,
           options.metadata,
         );
+      }
+
+      // Emit lifecycle events for results
+      for (const r of result.results) {
+        const type = r.success ? 'notification.sent' : 'notification.failed';
+        await this.analyticsService.trackEvent(projectId, {
+          type,
+          notificationId: job.id as any,
+          data: {
+            platform: r.platform,
+            error: r.error,
+            shouldRetry: r.shouldRetry,
+            invalidTarget: r.invalidTarget,
+          },
+        } as any);
+        await this.webhooksService.dispatch(projectId, type, {
+          jobId: job.id,
+          platform: r.platform,
+          success: r.success,
+          error: r.error,
+        });
       }
 
       // Update job progress to complete

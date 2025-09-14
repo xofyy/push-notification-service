@@ -18,12 +18,14 @@ import {
   ApiSecurity,
   ApiBearerAuth,
   ApiHeader,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { RequireApiKey, CurrentProject, Public } from '../../common/decorators/auth.decorator';
 import { Project } from './schemas/project.schema';
+import { ErrorResponseDto } from '../../common/dto/error-response.dto';
 
 @ApiTags('Projects')
 @Controller('projects')
@@ -42,9 +44,19 @@ export class ProjectsController {
   @Public()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
+    operationId: 'Projects_Create',
     summary: 'Create a new project',
     description:
       'Creates a new push notification project with auto-generated API key and configuration.',
+  })
+  @ApiBody({
+    description: 'Project payload',
+    schema: {
+      example: {
+        name: 'My Mobile App',
+        description: 'Push notifications for my mobile application',
+      },
+    },
   })
   @ApiResponse({
     status: 201,
@@ -68,13 +80,7 @@ export class ProjectsController {
   @ApiResponse({
     status: 400,
     description: 'Invalid input data',
-    schema: {
-      example: {
-        statusCode: 400,
-        message: ['name should not be empty', 'name must be a string'],
-        error: 'Bad Request',
-      },
-    },
+    type: ErrorResponseDto,
   })
   create(@Body() createProjectDto: CreateProjectDto) {
     return this.projectsService.create(createProjectDto);
@@ -82,6 +88,7 @@ export class ProjectsController {
 
   @Get()
   @ApiOperation({
+    operationId: 'Projects_GetCurrent',
     summary: 'Get authenticated project',
     description: 'Returns the project associated with the provided API key.',
   })
@@ -113,13 +120,7 @@ export class ProjectsController {
   @ApiResponse({
     status: 401,
     description: 'Invalid or missing API key',
-    schema: {
-      example: {
-        statusCode: 401,
-        message: 'API key is required. Please provide X-API-Key header.',
-        error: 'Unauthorized',
-      },
-    },
+    type: ErrorResponseDto,
   })
   findAll(@CurrentProject() project: Project) {
     // Return only the authenticated project for security
@@ -233,6 +234,7 @@ export class ProjectsController {
 
   @Post(':id/regenerate-api-key')
   @ApiOperation({
+    operationId: 'Projects_RotateApiKey',
     summary: 'Regenerate API key',
     description:
       'Generates a new API key for the project. The old API key will become invalid immediately.',
@@ -259,6 +261,7 @@ export class ProjectsController {
   @ApiResponse({
     status: 403,
     description: 'Access denied - can only regenerate API key for own project',
+    type: ErrorResponseDto,
   })
   regenerateApiKey(
     @Param('id') id: string,

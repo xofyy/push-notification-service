@@ -72,7 +72,7 @@ export class TemplatesService {
       limit?: number;
       offset?: number;
     },
-  ): Promise<{ templates: Template[]; total: number }> {
+  ): Promise<{ items: Template[]; total: number; limit: number; offset: number }> {
     const query: any = { projectId };
 
     if (options?.status) {
@@ -96,7 +96,7 @@ export class TemplatesService {
       this.templateModel.countDocuments(query),
     ]);
 
-    return { templates, total };
+    return { items: templates, total, limit, offset };
   }
 
   async findOne(projectId: string, id: string): Promise<Template> {

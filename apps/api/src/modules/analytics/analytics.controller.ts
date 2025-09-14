@@ -15,8 +15,10 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBody,
 } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
+import { Res } from '@nestjs/common';
 import { TrackEventDto, TrackBatchEventsDto } from './dto/track-event.dto';
 import {
   AnalyticsQueryDto,
@@ -34,6 +36,7 @@ import {
   LowFrequencyRateLimit,
 } from '../../common/decorators/rate-limit.decorator';
 import { Project } from '../projects/schemas/project.schema';
+import { ErrorResponseDto } from '../../common/dto/error-response.dto';
 
 @ApiTags('Analytics')
 @Controller('projects/:projectId/analytics')
@@ -53,9 +56,21 @@ export class AnalyticsController {
   }
 
   @Post('events')
-  @ApiOperation({ summary: 'Track a single analytics event' })
+  @ApiOperation({ operationId: 'Analytics_TrackEvent', summary: 'Track a single analytics event' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiResponse({ status: 201, description: 'Event tracked successfully' })
+  @ApiBody({
+    description: 'Event payload',
+    schema: {
+      example: {
+        type: 'notification.sent',
+        notificationId: '64f1a2b3c4d5e6f7a8b9c0ff',
+        deviceId: '64f1a2b3c4d5e6f7a8b9c0aa',
+        data: { platform: 'android' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid payload', type: ErrorResponseDto })
   @HttpCode(HttpStatus.CREATED)
   @HighFrequencyRateLimit() // 100 requests per minute for event tracking
   async trackEvent(
@@ -69,12 +84,25 @@ export class AnalyticsController {
   }
 
   @Post('events/batch')
-  @ApiOperation({ summary: 'Track multiple analytics events in batch' })
+  @ApiOperation({ operationId: 'Analytics_TrackBatch', summary: 'Track multiple analytics events in batch' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiResponse({
     status: 201,
     description: 'Batch events tracked successfully',
   })
+  @ApiBody({
+    description: 'Batch payload',
+    schema: {
+      example: {
+        batchId: 'batch-123',
+        events: [
+          { type: 'notification.sent', notificationId: '...', data: { platform: 'ios' } },
+          { type: 'notification.failed', notificationId: '...', data: { error: 'invalid token' } },
+        ],
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid payload', type: ErrorResponseDto })
   @HttpCode(HttpStatus.CREATED)
   @HighFrequencyRateLimit() // 100 requests per minute for batch events
   async trackBatchEvents(
@@ -110,7 +138,7 @@ export class AnalyticsController {
   }
 
   @Get('overview')
-  @ApiOperation({ summary: 'Get project analytics overview' })
+  @ApiOperation({ operationId: 'Analytics_Overview', summary: 'Get project analytics overview' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiResponse({ status: 200, description: 'Overview retrieved successfully' })
   async getOverview(
@@ -267,7 +295,7 @@ export class AnalyticsController {
   }
 
   @Get('export')
-  @ApiOperation({ summary: 'Export analytics data' })
+  @ApiOperation({ operationId: 'Analytics_Export', summary: 'Export analytics data' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
   @ApiQuery({
     name: 'format',
@@ -286,15 +314,29 @@ export class AnalyticsController {
     this.validateProjectAccess(projectId, project);
     const data = await this.analyticsService.getEvents(projectId, {
       ...query,
-      limit: 10000, // Allow larger export
+      limit: 10000,
     });
 
     if (format === 'csv') {
-      // In a real implementation, convert to CSV format
+      const rows = Array.isArray(data.events) ? data.events : [];
+      const cols = ['timestamp', 'type', 'notificationId', 'deviceId'];
+      const header = cols.join(',');
+      const csvLines = [header];
+      for (const ev of rows) {
+        const ts = ev.timestamp ? new Date(ev.timestamp).toISOString() : '';
+        const nid = ev.notificationId || '';
+        const did = ev.deviceId || '';
+        const line = [ts, ev.type || '', String(nid), String(did)]
+          .map((v) => String(v).replace(/"/g, '""'))
+          .map((v) => (v.includes(',') ? `"${v}"` : v))
+          .join(',');
+        csvLines.push(line);
+      }
       return {
         format: 'csv',
         filename: `analytics-${projectId}-${Date.now()}.csv`,
-        data: data.events,
+        data: csvLines.join('\n'),
+        total: data.total,
       };
     }
 
@@ -306,4 +348,46 @@ export class AnalyticsController {
       summary: data.summary,
     };
   }
+
+  @Get('realtime-sse')
+  @ApiOperation({ summary: 'Server-Sent Events for real-time analytics (last hour, updates every 30s)' })
+  async realtimeSSE(@Param('projectId') projectId: string, @CurrentProject() project: Project, @Res() res: any) {
+    this.validateProjectAccess(projectId, project);
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    const write = (eventName: string, data: unknown) => {
+      res.write(`event: ${eventName}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    const interval = setInterval(async () => {
+      try {
+        const now = new Date();
+        const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+        const payload = await this.analyticsService.getEvents(projectId, {
+          startDate: hourAgo.toISOString(),
+          endDate: now.toISOString(),
+          limit: 1,
+        });
+        const funnel = await this.analyticsService.getNotificationFunnel(projectId, { startDate: hourAgo.toISOString(), endDate: now.toISOString() } as any);
+        write('overview', { ts: now.toISOString(), total: payload.total, funnel });
+      } catch (e) {
+        write('error', { message: e?.message || String(e) });
+      }
+    }, 30000);
+
+    reqOnClose(res, () => {
+      clearInterval(interval);
+      res.end();
+    });
+  }
+}
+
+function reqOnClose(res: any, cb: () => void) {
+  res.on?.('close', cb);
+  res.req?.on?.('close', cb);
 }

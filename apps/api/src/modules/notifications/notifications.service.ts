@@ -17,6 +17,7 @@ import { SendNotificationDto } from './dto/send-notification.dto';
 import { TemplatesService } from '../templates/templates.service';
 import { QueueService, QueuePriority } from '../../common/queue/queue.service';
 import { NotificationService } from '../../providers/notification/notification.service';
+import { PaginatedResult } from '../../common/interfaces/pagination.interface';
 
 @Injectable()
 export class NotificationsService {
@@ -29,9 +30,47 @@ export class NotificationsService {
     @Optional() private readonly notificationService?: NotificationService,
   ) {}
 
+  async listByProject(
+    projectId: string,
+    options: {
+      status?: NotificationStatus;
+      type?: NotificationType;
+      limit?: number;
+      offset?: number;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    } = {},
+  ): Promise<PaginatedResult<Notification>> {
+    const query: any = { projectId: new Types.ObjectId(projectId) };
+    if (options.status) query.status = options.status;
+    if (options.type) query.type = options.type;
+
+    const sort: any = {};
+    const sortField = options.sortBy || 'createdAt';
+    const sortDir = options.sortOrder === 'asc' ? 1 : -1;
+    sort[sortField] = sortDir;
+
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const [items, total] = await Promise.all([
+      this.notificationModel
+        .find(query)
+        .sort(sort)
+        .skip(offset)
+        .limit(limit)
+        .select('-__v')
+        .exec(),
+      this.notificationModel.countDocuments(query).exec(),
+    ]);
+
+    return { items, total, limit, offset };
+  }
+
   async send(
     projectId: string,
     sendNotificationDto: SendNotificationDto,
+    idempotencyKey?: string,
   ): Promise<Notification> {
     // Validate targeting
     const hasTargeting =
@@ -97,10 +136,21 @@ export class NotificationsService {
       );
     }
 
+    // Idempotency: return existing by key if provided
+    if (idempotencyKey) {
+      const existing = await this.notificationModel
+        .findOne({ projectId: new Types.ObjectId(projectId), idempotencyKey })
+        .exec();
+      if (existing) {
+        return existing;
+      }
+    }
+
     // Create notification
     const notification = new this.notificationModel({
       projectId: new Types.ObjectId(projectId),
       ...processedNotification,
+      idempotencyKey,
       targetDevices: processedNotification.targetDevices?.map(
         (id) => new Types.ObjectId(id),
       ),

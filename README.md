@@ -21,6 +21,7 @@
 - [🔍 Monitoring](#-monitoring)
 - [🚨 Troubleshooting](#-troubleshooting)
 - [🤝 Contributing](#-contributing)
+- [🧰 SDK Generation](#-sdk-generation)
 
 ## 🎯 Overview
 
@@ -1816,5 +1817,35 @@ DEBUG=devices:*,notifications:* npm start
 ---
 
 **Built with ❤️ using NestJS, TypeScript, and modern cloud technologies.**
+
+## 🧰 SDK Generation
+
+The API exports an OpenAPI specification in development at `apps/api/docs/openapi.json` on boot (see API logs). You can generate client SDKs directly from this file.
+
+1) Ensure the API has run locally at least once:
+
+```
+cd apps/api
+npm run start:dev
+# OpenAPI will be exported to apps/api/docs/openapi.json
+```
+
+2) Generate a TypeScript (axios) client:
+
+```
+npx @openapitools/openapi-generator-cli generate \
+  -i apps/api/docs/openapi.json \
+  -g typescript-axios \
+  -o sdk/typescript-axios
+```
+
+3) Generate a Python client:
+
+```
+npx @openapitools/openapi-generator-cli generate \
+  -i apps/api/docs/openapi.json \
+  -g python \
+  -o sdk/python
+```
 
 Last updated: August 2025 | Version: 1.0.0

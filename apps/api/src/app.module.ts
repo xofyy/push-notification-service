@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -24,6 +25,7 @@ import { FCMModule } from './providers/fcm/fcm.module';
 import { APNsModule } from './providers/apns/apns.module';
 import { WebPushModule } from './providers/webpush/webpush.module';
 import { NotificationModule } from './providers/notification/notification.module';
+import { HttpErrorFilter } from './common/filters/http-error.filter';
 
 @Module({
   imports: [
@@ -61,6 +63,9 @@ import { NotificationModule } from './providers/notification/notification.module
     HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_FILTER, useClass: HttpErrorFilter },
+  ],
 })
 export class AppModule {}

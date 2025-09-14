@@ -21,6 +21,7 @@ import {
   ApiQuery,
   ApiSecurity,
   ApiHeader,
+  ApiBody,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { DevicesService } from './devices.service';
@@ -38,6 +39,10 @@ import {
   StrictRateLimit,
 } from '../../common/decorators/rate-limit.decorator';
 import { Project } from '../projects/schemas/project.schema';
+import { ApiPaginatedResponse } from '../../common/dto/paginated-response.decorator';
+import { Device } from './schemas/device.schema';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { ErrorResponseDto } from '../../common/dto/error-response.dto';
 
 @ApiTags('Devices')
 @Controller('projects/:projectId/devices')
@@ -78,6 +83,21 @@ export class DevicesController {
     description: 'Project ID',
     example: '64f1a2b3c4d5e6f7a8b9c0d1',
   })
+  @ApiBody({
+    description: 'Device registration payload',
+    schema: {
+      example: {
+        token: 'fcm_token_here_1234567890',
+        platform: 'android',
+        userId: 'user123',
+        tags: ['test', 'beta'],
+        properties: {
+          appVersion: '1.0.0',
+          deviceModel: 'Pixel 7',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: 'Device registered successfully',
@@ -101,17 +121,7 @@ export class DevicesController {
       },
     },
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid device data or token',
-    schema: {
-      example: {
-        statusCode: 400,
-        message: 'Invalid FCM token format',
-        error: 'Bad Request',
-      },
-    },
-  })
+  @ApiResponse({ status: 400, description: 'Invalid device data or token', type: ErrorResponseDto })
   register(
     @Param('projectId') projectId: string,
     @Body() registerDeviceDto: RegisterDeviceDto,
@@ -123,6 +133,38 @@ export class DevicesController {
       autoDetectPlatform: true,
       validateToken: true,
       userAgent: request.headers['user-agent'],
+    });
+  }
+
+  @Get()
+  @MediumFrequencyRateLimit()
+  @ApiOperation({ operationId: 'Devices_List', summary: 'List devices (paginated)' })
+  @ApiParam({ name: 'projectId', description: 'Project ID' })
+  @ApiQuery({ name: 'platform', required: false, enum: Platform })
+  @ApiQuery({ name: 'tag', required: false, type: String })
+  @ApiQuery({ name: 'active', required: false, type: Boolean })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
+  @ApiQuery({ name: 'sortBy', required: false, type: String, example: 'createdAt' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'], example: 'desc' })
+  @ApiPaginatedResponse(Device as any)
+  list(
+    @Param('projectId') projectId: string,
+    @CurrentProject() project: Project,
+    @Query('platform') platform?: Platform,
+    @Query('tag') tag?: string,
+    @Query('active') active?: string,
+    @Query() page?: PaginationQueryDto,
+  ) {
+    this.validateProjectAccess(projectId, project);
+    return this.devicesService.listByProject(projectId, {
+      platform,
+      tag,
+      active: active !== undefined ? active === 'true' : undefined,
+      limit: page?.limit,
+      offset: page?.offset,
+      sortBy: page?.sortBy,
+      sortOrder: page?.sortOrder,
     });
   }
 
@@ -324,6 +366,7 @@ export class DevicesController {
   }
 
   @Get(':id')
+  @ApiResponse({ status: 404, description: 'Device not found', type: ErrorResponseDto })
   findOne(
     @Param('projectId') projectId: string,
     @Param('id') id: string,
@@ -334,6 +377,7 @@ export class DevicesController {
   }
 
   @Patch(':id')
+  @ApiResponse({ status: 404, description: 'Device not found', type: ErrorResponseDto })
   update(
     @Param('projectId') projectId: string,
     @Param('id') id: string,
@@ -346,6 +390,7 @@ export class DevicesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiResponse({ status: 404, description: 'Device not found', type: ErrorResponseDto })
   remove(
     @Param('projectId') projectId: string,
     @Param('id') id: string,
