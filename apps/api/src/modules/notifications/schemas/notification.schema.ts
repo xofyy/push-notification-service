@@ -118,7 +118,7 @@ export class Notification {
   completedAt?: Date;
 
   @Prop({ type: [String], default: [] })
-  errors!: string[];
+  processingErrors!: string[];
 
   @Prop({ type: Object, default: {} })
   metadata!: Record<string, any>;

@@ -1,6 +1,6 @@
 import { Module, DynamicModule, Global } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DevicesModule } from '../../modules/devices/devices.module';
 import { AnalyticsModule } from '../../modules/analytics/analytics.module';
 import { WebhooksModule } from '../../modules/webhooks/webhooks.module';
@@ -18,12 +18,10 @@ import { NotificationModule } from '../../providers/notification/notification.mo
 @Module({})
 export class QueueModule {
   static forRoot(): DynamicModule {
-    console.log('🔧 Configuring Queue Module...');
+    console.log('Configuring Queue Module...');
 
     // Decide whether to enable BullMQ based on environment
-    const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL;
-    const enableQueues =
-      (process.env.ENABLE_QUEUE_SYSTEM ?? 'true') !== 'false' && !!redisUrl;
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
     const imports: any[] = [
       ConfigModule,
@@ -36,39 +34,35 @@ export class QueueModule {
       ]),
     ];
 
-    if (enableQueues) {
-      // Parse Redis URL for BullMQ/ioredis options
-      try {
-        const url = new URL(redisUrl!);
-        const isTls = url.protocol === 'rediss:';
-        const connection: any = {
-          host: url.hostname,
-          port: url.port ? parseInt(url.port, 10) : 6379,
-        };
-        if (url.password) connection.password = url.password;
-        if (isTls) connection.tls = {};
-
-        imports.push(
-          BullModule.forRoot({ connection }),
-          BullModule.registerQueue(
-            { name: 'notification-queue' },
-            { name: 'scheduled-queue' },
-            { name: 'batch-queue' },
-            { name: 'recurring-queue' },
-            { name: 'webhook-queue' },
-          ),
-        );
-        console.log('✅ BullMQ configured for queues');
-      } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e));
-        console.warn(
-          `⚠️  Failed to parse REDIS_URL (${redisUrl}). Queues will be disabled.`,
-          err.message,
-        );
-      }
-    } else {
-      console.log('📝 Queue system disabled - BullMQ not initialized');
-    }
+    imports.push(
+      BullModule.forRootAsync({
+        imports: [ConfigModule],
+        useFactory: async (configService: ConfigService) => {
+          const redisUrl = configService.get<string>('redis.local.url') || configService.get<string>('redis.upstash.url');
+          if (!redisUrl) {
+            throw new Error('Redis URL not configured');
+          }
+          const url = new URL(redisUrl);
+          const isTls = url.protocol === 'rediss:';
+          const connection: any = {
+            host: url.hostname,
+            port: url.port ? parseInt(url.port, 10) : 6379,
+          };
+          if (url.password) connection.password = url.password;
+          if (isTls) connection.tls = {};
+          return { connection };
+        },
+        inject: [ConfigService],
+      }),
+      BullModule.registerQueue(
+        { name: 'notification-queue' },
+        { name: 'scheduled-queue' },
+        { name: 'batch-queue' },
+        { name: 'recurring-queue' },
+        { name: 'webhook-queue' },
+      ),
+    );
+    console.log('BullMQ configured for queues');
 
     return {
       module: QueueModule,

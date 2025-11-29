@@ -48,7 +48,7 @@ export class QueuesService {
     private readonly queueService: QueueService,
     private readonly notificationsService: NotificationsService,
   ) {
-    this.logger.log('✅ Queue service initialized');
+    this.logger.log('Queue service initialized');
   }
 
   /**
@@ -88,11 +88,11 @@ export class QueuesService {
           // For batch jobs, we expect an array of notifications in the payload
           const notifications = Array.isArray(payload)
             ? payload.map((p) => ({
-                projectId,
-                payload: p,
-                targeting,
-                options,
-              }))
+              projectId,
+              payload: p,
+              targeting,
+              options,
+            }))
             : [{ projectId, payload, targeting, options }];
 
           return await this.queueService.addBatchJob(

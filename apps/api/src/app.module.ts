@@ -31,6 +31,7 @@ import { HttpErrorFilter } from './common/filters/http-error.filter';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
       load: [configuration, databaseConfig, redisConfig, fcmConfig],
       validationSchema: envValidationSchema,
       validationOptions: {
@@ -68,4 +69,4 @@ import { HttpErrorFilter } from './common/filters/http-error.filter';
     { provide: APP_FILTER, useClass: HttpErrorFilter },
   ],
 })
-export class AppModule {}
+export class AppModule { }

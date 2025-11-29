@@ -17,7 +17,7 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly reflector: Reflector,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Allow explicitly public routes
@@ -31,7 +31,35 @@ export class ApiKeyGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
 
-    // Extract API key from X-API-Key header
+    // 1. Check for Master Admin Secret
+    const adminSecretHeader = request.headers['x-admin-secret'] as string;
+    const envAdminSecret = process.env.ADMIN_SECRET;
+
+    if (adminSecretHeader && adminSecretHeader === envAdminSecret) {
+      this.logger.debug('Master Admin Secret validated. Access granted as Admin.');
+      // Mark request as admin
+      (request as any).isAdmin = true;
+
+      // Try to populate request.project if projectId is in params
+      const params = request.params as any;
+      const projectId = params?.projectId || params?.id;
+
+      if (projectId && projectId.match(/^[0-9a-fA-F]{24}$/)) {
+        try {
+          const project = await this.projectsService.findOne(projectId);
+          if (project) {
+            request.project = project;
+            this.logger.debug(`Admin context: Project ${projectId} loaded.`);
+          }
+        } catch (e) {
+          this.logger.warn(`Admin context: Failed to load project ${projectId}`);
+        }
+      }
+
+      return true;
+    }
+
+    // 2. Extract API key from X-API-Key header
     const apiKey = request.headers['x-api-key'] as string;
 
     if (!apiKey) {

@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue, Job, JobsOptions } from 'bullmq';
 
@@ -18,6 +18,12 @@ export enum JobType {
   CLEANUP = 'cleanup',
 }
 
+export interface NotificationSegment {
+  field: string;
+  operator: 'eq' | 'ne' | 'gt' | 'lt' | 'contains' | 'in';
+  value: any;
+}
+
 export interface NotificationJobData {
   projectId: string;
   payload: {
@@ -30,7 +36,7 @@ export interface NotificationJobData {
   };
   targeting: {
     deviceIds?: string[];
-    segment?: any;
+    segment?: NotificationSegment[] | Record<string, any>;
     topics?: string[];
   };
   options?: {
@@ -63,6 +69,13 @@ export interface RecurringJobData extends NotificationJobData {
   maxExecutions?: number;
 }
 
+export interface JobStatus {
+  status: string;
+  progress?: number | object;
+  data?: any;
+  error?: string;
+}
+
 @Injectable()
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
@@ -84,9 +97,42 @@ export class QueueService {
     const isQueueEnabled = process.env.ENABLE_QUEUE_SYSTEM !== 'false';
     if (!isQueueEnabled) {
       this.logger.log(
-        '📝 Queue system disabled - using direct processing mode',
+        'Queue system disabled - using direct processing mode',
       );
     }
+  }
+
+  private createMockJob<T>(data: T, opts: JobsOptions, idPrefix: string): Job<T> {
+    const timestamp = Date.now();
+    return {
+      id: `${idPrefix}-${timestamp}`,
+      data,
+      opts,
+      returnvalue: null,
+      attemptsMade: 0,
+      processedOn: timestamp,
+      finishedOn: timestamp,
+      timestamp,
+      name: 'mock-job',
+      stacktrace: [],
+      queueName: 'mock-queue',
+      progress: 0,
+      isActive: async () => false,
+      isCompleted: async () => true,
+      isFailed: async () => false,
+      isDelayed: async () => false,
+      isWaiting: async () => false,
+      getState: async () => 'completed',
+      updateProgress: async () => { },
+      remove: async () => { },
+      retry: async () => { },
+      discard: async () => { },
+      promote: async () => { },
+      moveToCompleted: async () => [],
+      moveToFailed: async () => [],
+      update: async () => { },
+      waitUntilFinished: async () => null,
+    } as unknown as Job<T>;
   }
 
   /**
@@ -103,17 +149,7 @@ export class QueueService {
   ): Promise<Job<NotificationJobData>> {
     if (!this.notificationQueue) {
       this.logger.warn('Queue system disabled - cannot add notification job');
-      // Return a mock job object for compatibility
-      return {
-        id: `mock-${Date.now()}`,
-        data,
-        opts: options,
-        returnvalue: null,
-        attemptsMade: 0,
-        processedOn: new Date().getTime(),
-        finishedOn: new Date().getTime(),
-        timestamp: new Date().getTime(),
-      } as any;
+      return this.createMockJob(data, options, 'mock');
     }
 
     const jobOptions: JobsOptions = {
@@ -132,7 +168,15 @@ export class QueueService {
     return this.notificationQueue.add(JobType.NOTIFICATION, data, jobOptions);
   }
 
-
+  /**
+   * Remove notification job
+   */
+  async removeNotificationJob(jobId: string): Promise<boolean> {
+    if (!this.notificationQueue) {
+      return false;
+    }
+    return this.cancelJob('notification-queue', jobId);
+  }
 
   /**
    * Add scheduled notification job
@@ -143,16 +187,7 @@ export class QueueService {
   ): Promise<Job<ScheduledJobData>> {
     if (!this.scheduledQueue) {
       this.logger.warn('Queue system disabled - cannot add scheduled job');
-      return {
-        id: `mock-scheduled-${Date.now()}`,
-        data,
-        opts: options,
-        returnvalue: null,
-        attemptsMade: 0,
-        processedOn: new Date().getTime(),
-        finishedOn: new Date().getTime(),
-        timestamp: new Date().getTime(),
-      } as any;
+      return this.createMockJob(data, options, 'mock-scheduled');
     }
 
     const delay = data.sendAt.getTime() - Date.now();
@@ -202,16 +237,7 @@ export class QueueService {
 
     if (!this.batchQueue) {
       this.logger.warn('Queue system disabled - cannot add batch job');
-      return {
-        id: `mock-batch-${Date.now()}`,
-        data,
-        opts: options,
-        returnvalue: null,
-        attemptsMade: 0,
-        processedOn: new Date().getTime(),
-        finishedOn: new Date().getTime(),
-        timestamp: new Date().getTime(),
-      } as any;
+      return this.createMockJob(data, options, 'mock-batch');
     }
 
     return this.batchQueue.add(JobType.BATCH_NOTIFICATION, data, jobOptions);
@@ -226,16 +252,7 @@ export class QueueService {
   ): Promise<Job<RecurringJobData>> {
     if (!this.recurringQueue) {
       this.logger.warn('Queue system disabled - cannot add recurring job');
-      return {
-        id: `mock-recurring-${Date.now()}`,
-        data,
-        opts: options,
-        returnvalue: null,
-        attemptsMade: 0,
-        processedOn: new Date().getTime(),
-        finishedOn: new Date().getTime(),
-        timestamp: new Date().getTime(),
-      } as any;
+      return this.createMockJob(data, options, 'mock-recurring');
     }
 
     const jobOptions: JobsOptions = {
@@ -243,9 +260,9 @@ export class QueueService {
       repeat:
         data.schedule.type === 'cron'
           ? {
-              pattern: data.schedule.value as string,
-              tz: data.schedule.timezone,
-            }
+            pattern: data.schedule.value as string,
+            tz: data.schedule.timezone,
+          }
           : { every: data.schedule.value as number },
       jobId: options.jobId,
       removeOnComplete: 10,
@@ -274,7 +291,7 @@ export class QueueService {
   async getJobStatus(
     queueName: string,
     jobId: string,
-  ): Promise<{ status: string; progress?: any; data?: any; error?: any }> {
+  ): Promise<JobStatus> {
     const queue = this.getQueueByName(queueName);
     if (!queue) {
       throw new Error(`Queue ${queueName} not found`);

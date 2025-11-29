@@ -255,3 +255,4 @@ config.local.ts
 
 # Husky
 .husky/_
+AGENTS.md

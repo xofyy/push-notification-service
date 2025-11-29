@@ -75,6 +75,6 @@ export class Project {
 export const ProjectSchema = SchemaFactory.createForClass(Project);
 
 // Indexes for performance
-ProjectSchema.index({ apiKey: 1 }, { unique: true });
+// ProjectSchema.index({ apiKey: 1 }, { unique: true });
 ProjectSchema.index({ isActive: 1 });
 ProjectSchema.index({ createdAt: -1 });

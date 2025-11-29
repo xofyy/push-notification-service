@@ -42,43 +42,26 @@ The Push Notification Service is a comprehensive solution for sending push notif
 
 ## ✨ Features
 
-### 🔥 Core Features (Implemented)
+### 🔥 Core Capabilities
+- **Multi-Platform Support** - iOS (APNs), Android (FCM), and Web Push notifications
+- **Device Management** - Advanced registration, validation, and token lifecycle management
+- **User Segmentation** - Complex query engine with 10+ operators for precise targeting
+- **Properties & Tags** - Flexible metadata system for devices
+- **Real-time Analytics** - Detailed tracking of delivery, open rates, and device statistics
 
-- [x] **Multi-Platform Support** - iOS, Android, Web push notifications
-- [x] **Device Management** - Registration, validation, token refresh
-- [x] **User Segmentation** - Complex queries with 10+ operators
-- [x] **Properties & Tags** - Flexible device metadata system
-- [x] **Batch Processing** - Efficient bulk operations
-- [x] **Error Handling** - Intelligent retry with exponential backoff
-- [x] **Token Validation** - Platform-specific format checking
-- [x] **Health Monitoring** - Comprehensive system status
-- [x] **Analytics** - Device statistics and usage metrics
+### 🚀 Advanced Delivery
+- **Queue System** - Enterprise-grade job processing with BullMQ and Redis
+- **Smart Scheduling** - Schedule notifications for future delivery with timezone support
+- **Recurring Notifications** - Set up daily, weekly, or custom recurring schedules
+- **Batch Processing** - Efficiently handle millions of notifications
+- **Intelligent Retry** - Automatic exponential backoff for failed deliveries
 
-### ✅ Queue System (Sprint 4)
-
-- [x] **BullMQ Integration** - Enterprise job queue with Redis
-- [x] **Multiple Queue Types** - Immediate, scheduled, batch, and recurring
-- [x] **Job Processing** - Dedicated processors with priority handling
-- [x] **Scheduling** - Delayed notifications with timezone support
-- [x] **Batch Operations** - Bulk notification processing
-- [x] **Job Monitoring** - Status tracking and health checks
-- [x] **Auto Cleanup** - Scheduled cleanup of completed jobs
-- [x] **Error Handling** - Exponential backoff and retry logic
-
-### ✅ Template System (Sprint 5)
-
-- [x] **Template CRUD Operations** - Create, read, update, delete templates
-- [x] **Variable Substitution** - Handlebars-style {{variable}} syntax
-- [x] **Template Validation** - Syntax validation and variable checking
-- [x] **Multi-Language Support** - Language-specific templates
-- [x] **Usage Statistics** - Template analytics and performance tracking
-- [x] **Notifications Integration** - Seamless template rendering during notification sending
-
-### 🚧 Roadmap Features
-- [x] **Advanced Analytics** - Real-time dashboards (Sprint 6) ✅
-- [ ] **REST API** - Complete external API (Sprint 7)
-- [ ] **Admin Dashboard** - Web-based management interface (Sprint 9)
-- [ ] **Client SDKs** - JavaScript, Python, PHP libraries (Sprint 10)
+### 🎨 Content & Management
+- **Template Engine** - Dynamic templates with Handlebars-style variable substitution
+- **Multi-Language Support** - Localization support for notification content
+- **Admin Dashboard** - Comprehensive Web UI for managing projects, devices, and notifications
+- **REST API** - Full-featured API for seamless integration
+- **Client SDKs** - Ready-to-use libraries for JavaScript and Python
 
 ## 🏗️ Architecture
 
@@ -87,8 +70,8 @@ The Push Notification Service is a comprehensive solution for sending push notif
 ```mermaid
 graph TB
     A[Client Applications] --> B[NestJS API Server]
-    B --> C[MongoDB Atlas]
-    B --> D[Upstash Redis]
+    B --> C[MongoDB (Local)]
+    B --> D[Redis (Local)]
     B --> Q[BullMQ Queue System]
     Q --> E[FCM Service]
     Q --> F[APNs Service]
@@ -107,8 +90,8 @@ graph TB
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | **Backend** | NestJS 11 + TypeScript | API server and business logic |
-| **Database** | MongoDB Atlas (Free Tier) | Device and project data |
-| **Cache** | Upstash Redis (Free Tier) | Session cache and job queue |
+| **Database** | MongoDB (Local) | Device and project data |
+| **Cache** | Redis (Local) | Session cache and job queue |
 | **Queue System** | BullMQ + Redis | Job processing and scheduling |
 | **Push Services** | FCM, APNs, Web Push | Multi-platform notification delivery |
 | **Validation** | Joi + class-validator | Input validation and schema validation |
@@ -119,8 +102,8 @@ graph TB
 ```
 apps/api/src/
 ├── config/                 # Configuration management
-│   ├── database.config.ts   # MongoDB Atlas configuration
-│   ├── redis.config.ts      # Upstash Redis configuration
+│   ├── database.config.ts   # MongoDB configuration
+│   ├── redis.config.ts      # Redis configuration
 │   └── fcm.config.ts        # Firebase configuration
 ├── common/                  # Shared utilities
 │   ├── redis/              # Redis service and connection
@@ -132,6 +115,12 @@ apps/api/src/
 │   ├── notifications/      # Notification creation and history
 │   ├── templates/          # Dynamic notification templates
 │   └── queues/             # Queue management and job control
+├── apps/admin/             # Next.js Admin Dashboard
+│   ├── src/                # Frontend source code
+│   └── public/             # Static assets
+├── sdk/                    # Generated Client SDKs
+│   ├── typescript-axios/   # TypeScript Client
+│   └── python/             # Python Client
 └── providers/              # Push notification providers
     ├── fcm/                # Firebase Cloud Messaging
     ├── apns/               # Apple Push Notifications
@@ -145,8 +134,8 @@ apps/api/src/
 
 - **Node.js 18+**
 - **npm** or **yarn**
-- **MongoDB Atlas account** (free tier)
-- **Upstash Redis account** (free tier)
+- **MongoDB** (local or Docker)
+- **Redis** (local or Docker)
 - **Firebase project** (for FCM)
 - **Apple Developer account** (for APNs, optional)
 
@@ -186,6 +175,32 @@ docker-compose up -d
 docker-compose logs -f api
 ```
 
+### 🖥️ Admin Panel Setup
+
+The project includes a comprehensive Admin Dashboard built with Next.js.
+
+1.  **Navigate to admin directory:**
+    ```bash
+    cd apps/admin
+    ```
+
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+3.  **Configure environment:**
+    ```bash
+    cp .env.example .env.local
+    ```
+    *Ensure `ADMIN_SECRET` matches the one in `apps/api/.env`.*
+
+4.  **Start the dashboard:**
+    ```bash
+    npm run dev
+    ```
+    Access at: `http://localhost:3001`
+
 ## ⚙️ Configuration
 
 ### Environment Variables
@@ -194,21 +209,9 @@ Create a `.env` file in the `apps/api` directory:
 
 ```env
 # Application
-NODE_ENV=development
 PORT=3000
-API_VERSION=v1
-
-# Database Configuration
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/push-notifications?retryWrites=true&w=majority
-
-# Redis Configuration (Upstash)
-UPSTASH_REDIS_URL=rediss://default:password@host:port
-UPSTASH_REDIS_TOKEN=your_upstash_token
-
-# Firebase Cloud Messaging (FCM)
-FCM_ENABLED=true
-FCM_PROJECT_ID=your-firebase-project-id
-FCM_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"..."}
+NODE_ENV=development
+ADMIN_SECRET=your-secure-admin-secret-key-here
 
 # Apple Push Notification Service (APNs)
 APNS_ENABLED=true
@@ -233,15 +236,7 @@ FEATURES_SCHEDULING=true
 CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
 ```
 
-### Free Tier Limits
 
-| Service | Free Limit | Current Usage | Monitoring |
-|---------|------------|---------------|------------|
-| MongoDB Atlas | 512MB storage | ~5% | [Atlas Dashboard](https://cloud.mongodb.com) |
-| Upstash Redis | 10K commands/day | ~1% | [Upstash Console](https://console.upstash.com) |
-| Firebase FCM | Unlimited messages | N/A | [Firebase Console](https://console.firebase.google.com) |
-| APNs | Unlimited messages | N/A | Apple Developer Portal |
-| Web Push | Unlimited messages | N/A | Browser dev tools |
 
 ## 🔧 API Documentation
 
@@ -1763,6 +1758,90 @@ DEBUG=* npm run start:dev
 DEBUG=devices:*,notifications:* npm start
 ```
 
+### 📝 Templates Management
+
+#### Create Template
+```http
+POST /projects/{projectId}/templates
+Content-Type: application/json
+
+{
+  "name": "Welcome Email",
+  "description": "Sent to new users",
+  "content": {
+    "en": {
+      "title": "Welcome {{name}}!",
+      "body": "Thanks for joining us."
+    },
+    "es": {
+      "title": "¡Bienvenido {{name}}!",
+      "body": "Gracias por unirte."
+    }
+  },
+  "variables": ["name"],
+  "type": "push"
+}
+```
+
+#### List Templates
+```http
+GET /projects/{projectId}/templates
+```
+
+#### Render Template
+```http
+POST /projects/{projectId}/templates/{templateId}/render
+Content-Type: application/json
+
+{
+  "data": {
+    "name": "John"
+  },
+  "lang": "en"
+}
+```
+
+---
+
+### 🪝 Webhooks Management
+
+#### Add Webhook
+```http
+POST /projects/{projectId}/webhooks
+Content-Type: application/json
+
+{
+  "url": "https://api.myapp.com/webhooks/push-events",
+  "events": ["notification.sent", "notification.failed"],
+  "isActive": true,
+  "headers": {
+    "X-Custom-Auth": "secret-token"
+  }
+}
+```
+
+#### List Webhooks
+```http
+GET /projects/{projectId}/webhooks
+```
+
+---
+
+### 🚨 Troubleshooting
+
+#### API Key Regeneration Lockout (Admin Panel)
+If you regenerate the API Key for the project used by the Admin Panel itself, you will be locked out with a `401 Unauthorized` error.
+
+**Solution:**
+1.  Access the backend database directly (MongoDB).
+2.  Find the project in the `projects` collection.
+3.  Copy the new `apiKey`.
+4.  Update the `API_KEY` variable in `apps/admin/.env.local`.
+5.  Restart the Admin Panel server (`npm run dev`).
+
+**Prevention:**
+Avoid regenerating the key for the active Admin Panel project unless absolutely necessary, and be prepared to update the configuration immediately.
+
 ## 🤝 Contributing
 
 ### Development Setup
@@ -1804,15 +1883,7 @@ DEBUG=devices:*,notifications:* npm start
 4. Commit with conventional format: `feat: add amazing feature`
 5. Push and create pull request
 
-### Project Roadmap
 
-#### Current Sprint Status
-- ✅ **Sprint 1**: Foundation (NestJS + MongoDB + Redis)
-- ✅ **Sprint 2**: Push Providers (FCM + APNs + Web Push)  
-- ✅ **Sprint 3**: Device Management (Registration + Segmentation)
-- ✅ **Sprint 4**: Queue System (BullMQ + Job Processing)
-- ✅ **Sprint 5**: Templates (Dynamic Notifications)
-- ✅ **Sprint 6**: Analytics (Real-time Dashboards)
 
 ---
 

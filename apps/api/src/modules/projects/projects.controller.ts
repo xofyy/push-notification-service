@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -38,7 +39,7 @@ import { ErrorResponseDto } from '../../common/dto/error-response.dto';
   example: 'your-project-api-key-here',
 })
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(private readonly projectsService: ProjectsService) { }
 
   @Post()
   @Public()
@@ -122,7 +123,10 @@ export class ProjectsController {
     description: 'Invalid or missing API key',
     type: ErrorResponseDto,
   })
-  findAll(@CurrentProject() project: Project) {
+  findAll(@CurrentProject() project: Project, @Req() req: any) {
+    if (req.isAdmin) {
+      return this.projectsService.findAll();
+    }
     // Return only the authenticated project for security
     return [project];
   }
@@ -157,7 +161,10 @@ export class ProjectsController {
     status: 404,
     description: 'Project not found',
   })
-  findOne(@Param('id') id: string, @CurrentProject() project: Project) {
+  findOne(@Param('id') id: string, @CurrentProject() project: Project, @Req() req: any) {
+    if (req.isAdmin) {
+      return this.projectsService.findOne(id);
+    }
     // Ensure user can only access their own project
     if (project._id.toString() !== id) {
       throw new ForbiddenException('Access denied to this project');
@@ -192,7 +199,11 @@ export class ProjectsController {
     @Param('id') id: string,
     @Body() updateProjectDto: UpdateProjectDto,
     @CurrentProject() project: Project,
+    @Req() req: any,
   ) {
+    if (req.isAdmin) {
+      return this.projectsService.update(id, updateProjectDto);
+    }
     // Ensure user can only update their own project
     if (project._id.toString() !== id) {
       throw new ForbiddenException('Access denied to this project');
@@ -224,7 +235,10 @@ export class ProjectsController {
     status: 404,
     description: 'Project not found',
   })
-  remove(@Param('id') id: string, @CurrentProject() project: Project) {
+  remove(@Param('id') id: string, @CurrentProject() project: Project, @Req() req: any) {
+    if (req.isAdmin) {
+      return this.projectsService.remove(id);
+    }
     // Ensure user can only delete their own project
     if (project._id.toString() !== id) {
       throw new ForbiddenException('Access denied to this project');
@@ -266,7 +280,11 @@ export class ProjectsController {
   regenerateApiKey(
     @Param('id') id: string,
     @CurrentProject() project: Project,
+    @Req() req: any,
   ) {
+    if (req.isAdmin) {
+      return this.projectsService.regenerateApiKey(id);
+    }
     // Ensure user can only regenerate API key for their own project
     if (project._id.toString() !== id) {
       throw new ForbiddenException('Access denied to this project');

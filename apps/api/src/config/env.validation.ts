@@ -16,8 +16,6 @@ export const envValidationSchema = Joi.object({
 
   // Redis
   REDIS_URL: Joi.string().optional(),
-  UPSTASH_REDIS_URL: Joi.string().optional(),
-  UPSTASH_REDIS_TOKEN: Joi.string().optional(),
 
   // Push Providers
   FCM_PROJECT_ID: Joi.string().optional(),

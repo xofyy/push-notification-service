@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, FilterQuery, UpdateQuery } from 'mongoose';
 import { Template, TemplateDocument } from './schemas/template.schema';
 import { CreateTemplateDto } from './dto/create-template.dto';
 import { UpdateTemplateDto } from './dto/update-template.dto';
@@ -21,7 +21,7 @@ export class TemplatesService {
 
   constructor(
     @InjectModel(Template.name) private templateModel: Model<TemplateDocument>,
-  ) {}
+  ) { }
 
   async create(
     projectId: string,
@@ -73,7 +73,7 @@ export class TemplatesService {
       offset?: number;
     },
   ): Promise<{ items: Template[]; total: number; limit: number; offset: number }> {
-    const query: any = { projectId };
+    const query: FilterQuery<TemplateDocument> = { projectId };
 
     if (options?.status) {
       query.status = options.status;
@@ -142,7 +142,7 @@ export class TemplatesService {
       }
     }
 
-    const updateData: any = { ...updateTemplateDto };
+    const updateData: UpdateQuery<TemplateDocument> = { ...updateTemplateDto };
 
     if (
       updateTemplateDto.title ||
@@ -196,12 +196,17 @@ export class TemplatesService {
       `Rendering template "${renderTemplateDto.template}" for project ${projectId}`,
     );
 
-    let template: Template;
+    let template: TemplateDocument;
 
     if (renderTemplateDto.template.match(/^[0-9a-fA-F]{24}$/)) {
-      template = await this.findOne(projectId, renderTemplateDto.template);
+      // We need the document to access _id properly
+      const doc = await this.templateModel.findOne({ projectId, _id: renderTemplateDto.template });
+      if (!doc) throw new NotFoundException(`Template with ID ${renderTemplateDto.template} not found`);
+      template = doc;
     } else {
-      template = await this.findByName(projectId, renderTemplateDto.template);
+      const doc = await this.templateModel.findOne({ projectId, name: renderTemplateDto.template });
+      if (!doc) throw new NotFoundException(`Template with name "${renderTemplateDto.template}" not found`);
+      template = doc;
     }
 
     if (template.status === 'inactive') {
@@ -277,15 +282,15 @@ export class TemplatesService {
         ),
         imageUrl: validateTemplateDto.imageUrl
           ? this.substituteVariables(
-              validateTemplateDto.imageUrl,
-              validateTemplateDto.testVariables,
-            )
+            validateTemplateDto.imageUrl,
+            validateTemplateDto.testVariables,
+          )
           : undefined,
         data: validateTemplateDto.data
           ? this.substituteObjectVariables(
-              validateTemplateDto.data,
-              validateTemplateDto.testVariables,
-            )
+            validateTemplateDto.data,
+            validateTemplateDto.testVariables,
+          )
           : undefined,
       };
 
@@ -296,7 +301,7 @@ export class TemplatesService {
         preview,
       };
     } catch (error) {
-      errors.push(error.message);
+      errors.push(error instanceof Error ? error.message : String(error));
       return {
         isValid: false,
         variables,
@@ -490,7 +495,7 @@ export class TemplatesService {
     templateId: string,
     success: boolean,
   ): Promise<void> {
-    const update: any = {
+    const update: UpdateQuery<TemplateDocument> = {
       $inc: { 'statistics.totalUsed': 1 },
       $set: { 'statistics.lastUsed': new Date() },
     };
@@ -502,8 +507,10 @@ export class TemplatesService {
         const currentSuccessRate = template.statistics?.successRate || 100;
         const newSuccessRate =
           (currentSuccessRate * totalUsed + 100) / (totalUsed + 1);
-        update.$set['statistics.successRate'] =
-          Math.round(newSuccessRate * 100) / 100;
+        update.$set = {
+          ...update.$set,
+          'statistics.successRate': Math.round(newSuccessRate * 100) / 100,
+        };
       }
     }
 

@@ -1,6 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as apn from 'apn';
+import {
+  PushProvider,
+  UnifiedNotificationPayload,
+  NotificationTarget,
+  UnifiedSendResult,
+  PlatformType,
+} from '../../common/interfaces/push-provider.interface';
 
 export interface APNsNotificationPayload {
   title: string;
@@ -23,12 +30,12 @@ export interface APNsSendOptions {
   expiry?: Date;
   collapseId?: string;
   pushType?:
-    | 'alert'
-    | 'background'
-    | 'voip'
-    | 'complication'
-    | 'fileprovider'
-    | 'mdm';
+  | 'alert'
+  | 'background'
+  | 'voip'
+  | 'complication'
+  | 'fileprovider'
+  | 'mdm';
 }
 
 export interface APNsSendResult {
@@ -46,13 +53,13 @@ export interface APNsSendResult {
 }
 
 @Injectable()
-export class APNsService implements OnModuleInit {
+export class APNsService implements OnModuleInit, PushProvider {
   private readonly logger = new Logger(APNsService.name);
   private provider: apn.Provider;
   private isInitialized = false;
   private defaultTopic: string;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   async onModuleInit() {
     await this.initializeAPNs();
@@ -95,11 +102,11 @@ export class APNsService implements OnModuleInit {
       this.isInitialized = true;
 
       this.logger.log(
-        `✅ APNs service initialized successfully (${production ? 'Production' : 'Sandbox'})`,
+        `APNs service initialized successfully (${production ? 'Production' : 'Sandbox'})`,
       );
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
-      this.logger.error('❌ Failed to initialize APNs service:', errorObj.message);
+      this.logger.error('Failed to initialize APNs service:', errorObj.message);
       this.isInitialized = false;
     }
   }
@@ -213,7 +220,7 @@ export class APNsService implements OnModuleInit {
 
         if (resultItem.status === 'fulfilled') {
           const result = resultItem.value;
-          
+
           if ('result' in result && result.result) {
             const apnResult = result.result as { sent?: unknown[]; failed?: Array<{ status?: string; response?: { reason?: string } }> };
 
@@ -240,10 +247,10 @@ export class APNsService implements OnModuleInit {
         }
 
         // Handle Promise rejection or unknown error
-        const errorReason = resultItem.status === 'rejected' ? resultItem.reason : 
-                           (resultItem.status === 'fulfilled' && 'error' in resultItem.value ? resultItem.value.error : null);
+        const errorReason = resultItem.status === 'rejected' ? resultItem.reason :
+          (resultItem.status === 'fulfilled' && 'error' in resultItem.value ? resultItem.value.error : null);
         const errorMessage = errorReason instanceof Error ? errorReason.message : 'Unknown error';
-        
+
         return {
           token,
           success: false,
@@ -314,6 +321,80 @@ export class APNsService implements OnModuleInit {
       ),
       topic: this.defaultTopic,
     };
+  }
+
+  async send(
+    payload: UnifiedNotificationPayload,
+    targets: NotificationTarget[],
+    dryRun: boolean = false,
+  ): Promise<UnifiedSendResult['results']> {
+    if (!this.isInitialized) {
+      return targets.map((target) => ({
+        platform: PlatformType.IOS,
+        target,
+        success: false,
+        error: 'APNs service not available',
+        shouldRetry: false,
+      }));
+    }
+
+    // Handle single token optimization
+    if (targets.length === 1 && targets[0].token) {
+      const result = await this.sendToSingleDevice(
+        targets[0].token,
+        {
+          title: payload.title,
+          body: payload.body,
+          data: payload.data,
+          badge: payload.badge,
+          sound: payload.sound,
+          category: payload.category,
+        },
+      );
+
+      return [
+        {
+          platform: PlatformType.IOS,
+          target: targets[0],
+          success: result.success,
+          messageId: result.results[0]?.messageId,
+          error: result.results[0]?.error,
+          shouldRetry: result.results[0]?.shouldRetry,
+          invalidTarget: result.results[0]?.invalidToken,
+        },
+      ];
+    }
+
+    // Handle multiple tokens
+    const tokens = targets
+      .map((t) => t.token)
+      .filter((token): token is string => Boolean(token));
+
+    if (tokens.length > 0) {
+      const result = await this.sendToMultipleDevices({
+        tokens,
+        payload: {
+          title: payload.title,
+          body: payload.body,
+          data: payload.data,
+          badge: payload.badge,
+          sound: payload.sound,
+          category: payload.category,
+        },
+      });
+
+      return result.results.map((r, index) => ({
+        platform: PlatformType.IOS,
+        target: targets[index],
+        success: r.success,
+        messageId: r.messageId,
+        error: r.error,
+        shouldRetry: r.shouldRetry,
+        invalidTarget: r.invalidToken,
+      }));
+    }
+
+    return [];
   }
 
   async shutdown(): Promise<void> {

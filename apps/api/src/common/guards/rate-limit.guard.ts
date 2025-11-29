@@ -14,6 +14,7 @@ import {
   RateLimitConfig,
   RateLimitType,
 } from '../interfaces/rate-limit.interface';
+import { RateLimitInfo } from '../interfaces/rate-limit-info.interface';
 
 // Decorator metadata keys
 export const RATE_LIMIT_KEY = 'rate_limit';
@@ -53,7 +54,7 @@ export class RateLimitGuard implements CanActivate {
   constructor(
     private readonly rateLimitService: RateLimitService,
     private readonly reflector: Reflector,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -242,7 +243,7 @@ export class RateLimitGuard implements CanActivate {
   /**
    * Add rate limit headers to response
    */
-  private addRateLimitHeaders(response: Response, info: any): void {
+  private addRateLimitHeaders(response: Response, info: RateLimitInfo): void {
     response.setHeader('X-RateLimit-Limit', info.limit.toString());
     response.setHeader('X-RateLimit-Remaining', info.remaining.toString());
     response.setHeader(

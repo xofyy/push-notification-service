@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, Types, FilterQuery, UpdateQuery } from 'mongoose';
 import { Device, DeviceDocument, Platform } from './schemas/device.schema';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
@@ -22,7 +22,7 @@ export class DevicesService {
 
   constructor(
     @InjectModel(Device.name) private deviceModel: Model<DeviceDocument>,
-  ) {}
+  ) { }
 
   async listByProject(
     projectId: string,
@@ -36,7 +36,7 @@ export class DevicesService {
       sortOrder?: 'asc' | 'desc';
     } = {},
   ): Promise<{ items: Device[]; total: number; limit: number; offset: number }> {
-    const query: any = { projectId: new Types.ObjectId(projectId) };
+    const query: FilterQuery<DeviceDocument> = { projectId: new Types.ObjectId(projectId) };
     if (options.platform) query.platform = options.platform;
     if (options.active !== undefined) query.isActive = !!options.active;
     if (options.tag) query.tags = options.tag;
@@ -79,8 +79,8 @@ export class DevicesService {
       .select('token platform')
       .lean();
     return (docs || [])
-      .filter((d: any) => typeof d.token === 'string' && d.token.length > 0)
-      .map((d: any) => ({ token: d.token as string, platform: d.platform as Platform }));
+      .filter((d) => typeof d.token === 'string' && d.token.length > 0)
+      .map((d) => ({ token: d.token as string, platform: d.platform as Platform }));
   }
 
   /**
@@ -91,7 +91,7 @@ export class DevicesService {
     segment: Partial<SegmentQuery> | any,
     limit = 1000,
   ): Promise<Array<{ token: string; platform: Platform }>> {
-    const filter: any = { projectId: new Types.ObjectId(projectId), isActive: true };
+    const filter: FilterQuery<DeviceDocument> = { projectId: new Types.ObjectId(projectId), isActive: true };
 
     if (segment?.platforms?.platforms?.length) {
       filter.platform = { $in: segment.platforms.platforms };
@@ -127,8 +127,8 @@ export class DevicesService {
       .lean();
 
     return (docs || [])
-      .filter((d: any) => typeof d.token === 'string' && d.token.length > 0)
-      .map((d: any) => ({ token: d.token as string, platform: d.platform as Platform }));
+      .filter((d) => typeof d.token === 'string' && d.token.length > 0)
+      .map((d) => ({ token: d.token as string, platform: d.platform as Platform }));
   }
 
   /**
@@ -146,7 +146,7 @@ export class DevicesService {
       ) {
         return Platform.WEB;
       }
-    } catch {}
+    } catch { }
 
     // APNs tokens are typically 64 characters (hex) for production
     // or longer for sandbox, and contain only hex characters

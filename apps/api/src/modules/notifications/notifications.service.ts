@@ -5,18 +5,18 @@ import {
   Logger,
   Optional,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Types, Connection, FilterQuery, UpdateQuery } from 'mongoose';
 import {
   Notification,
   NotificationDocument,
   NotificationStatus,
   NotificationType,
 } from './schemas/notification.schema';
+import { Device, DeviceDocument } from '../devices/schemas/device.schema';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { TemplatesService } from '../templates/templates.service';
 import { QueueService, QueuePriority } from '../../common/queue/queue.service';
-import { NotificationService } from '../../providers/notification/notification.service';
 import { PaginatedResult } from '../../common/interfaces/pagination.interface';
 
 @Injectable()
@@ -25,10 +25,12 @@ export class NotificationsService {
   constructor(
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
+    @InjectModel(Device.name)
+    private deviceModel: Model<DeviceDocument>,
+    @InjectConnection() private connection: Connection,
     private templatesService: TemplatesService,
     @Optional() private readonly queueService?: QueueService,
-    @Optional() private readonly notificationService?: NotificationService,
-  ) {}
+  ) { }
 
   async listByProject(
     projectId: string,
@@ -41,7 +43,7 @@ export class NotificationsService {
       sortOrder?: 'asc' | 'desc';
     } = {},
   ): Promise<PaginatedResult<Notification>> {
-    const query: any = { projectId: new Types.ObjectId(projectId) };
+    const query: FilterQuery<NotificationDocument> = { projectId: new Types.ObjectId(projectId) };
     if (options.status) query.status = options.status;
     if (options.type) query.type = options.type;
 
@@ -136,6 +138,24 @@ export class NotificationsService {
       );
     }
 
+    // Validate target devices if provided
+    if (processedNotification.targetDevices?.length) {
+      const deviceCount = await this.deviceModel.countDocuments({
+        _id: {
+          $in: processedNotification.targetDevices.map(
+            (id) => new Types.ObjectId(id),
+          ),
+        },
+        projectId: new Types.ObjectId(projectId),
+      });
+
+      if (deviceCount === 0) {
+        throw new BadRequestException(
+          'No valid devices found for the provided IDs',
+        );
+      }
+    }
+
     // Idempotency: return existing by key if provided
     if (idempotencyKey) {
       const existing = await this.notificationModel
@@ -165,91 +185,97 @@ export class NotificationsService {
         : undefined,
       recurring: processedNotification.recurring
         ? {
-            ...processedNotification.recurring,
-            endDate: processedNotification.recurring.endDate
-              ? new Date(processedNotification.recurring.endDate)
-              : undefined,
-          }
+          ...processedNotification.recurring,
+          endDate: processedNotification.recurring.endDate
+            ? new Date(processedNotification.recurring.endDate)
+            : undefined,
+        }
         : undefined,
     });
 
-    const savedNotification = await notification.save();
+    const session = await this.connection.startSession();
+    let savedNotification: NotificationDocument;
 
-    // Enqueue or schedule based on type
     try {
-      const type = processedNotification.type || NotificationType.INSTANT;
-      if (!this.queueService) {
-        this.logger.warn('QueueService not available; notification queued state may be pending.');
-        return savedNotification;
-      }
+      await session.withTransaction(async () => {
+        savedNotification = await notification.save({ session });
 
-      const baseJob = {
-        projectId,
-        payload: {
-          title: processedNotification.title,
-          body: processedNotification.body,
-          imageUrl: processedNotification.imageUrl,
-          data: processedNotification.data,
-        },
-        targeting: {
-          deviceIds: processedNotification.targetDevices,
-          segment: processedNotification.targetQuery,
-          topics: processedNotification.targetTopics,
-        },
-        options: {
-          trackDelivery: true,
-          metadata: {
-            notificationId: (savedNotification._id as any as Types.ObjectId).toString(),
-            templateId: processedNotification.templateId,
+        // Enqueue or schedule based on type
+        const type = processedNotification.type || NotificationType.INSTANT;
+        if (!this.queueService) {
+          this.logger.warn('QueueService not available; notification queued state may be pending.');
+          return;
+        }
+
+        const baseJob = {
+          projectId,
+          payload: {
+            title: processedNotification.title,
+            body: processedNotification.body,
+            imageUrl: processedNotification.imageUrl,
+            data: processedNotification.data,
           },
-        },
-      } as const;
+          targeting: {
+            deviceIds: processedNotification.targetDevices,
+            segment: processedNotification.targetQuery,
+            topics: processedNotification.targetTopics,
+          },
+          options: {
+            trackDelivery: true,
+            metadata: {
+              notificationId: (savedNotification._id as Types.ObjectId).toString(),
+              templateId: processedNotification.templateId,
+            },
+          },
+        } as const;
 
-      if (type === NotificationType.INSTANT) {
-        await this.queueService.addNotificationJob(baseJob as any, {
-          priority: QueuePriority.NORMAL,
-        });
-      } else if (type === NotificationType.SCHEDULED && processedNotification.scheduledFor) {
-        // Prefer existing QueueService implementation if present
-        const svc: any = this.queueService as any;
-        if (typeof svc.addScheduledJob === 'function') {
-          await svc.addScheduledJob(
-            {
-              ...(baseJob as any),
-              sendAt: new Date(processedNotification.scheduledFor),
-              timezone: processedNotification.recurring?.timezone,
-            },
-            { priority: QueuePriority.NORMAL },
-          );
-        } else {
-          this.logger.warn('addScheduledJob not available on QueueService');
+        if (type === NotificationType.INSTANT) {
+          await this.queueService.addNotificationJob(baseJob, {
+            priority: QueuePriority.NORMAL,
+            jobId: (savedNotification._id as Types.ObjectId).toString(),
+          });
+        } else if (type === NotificationType.SCHEDULED && processedNotification.scheduledFor) {
+          // Prefer existing QueueService implementation if present
+          if (typeof this.queueService.addScheduledJob === 'function') {
+            await this.queueService.addScheduledJob(
+              {
+                ...baseJob,
+                sendAt: new Date(processedNotification.scheduledFor),
+                timezone: processedNotification.recurring?.timezone,
+              },
+              { priority: QueuePriority.NORMAL },
+            );
+          } else {
+            this.logger.warn('addScheduledJob not available on QueueService');
+          }
+        } else if (type === NotificationType.RECURRING && processedNotification.recurring) {
+          const schedule = processedNotification.recurring.pattern
+            ? { type: 'cron' as const, value: processedNotification.recurring.pattern, timezone: processedNotification.recurring.timezone }
+            : { type: 'interval' as const, value: 0 };
+          if (typeof this.queueService.addRecurringJob === 'function') {
+            await this.queueService.addRecurringJob(
+              {
+                ...baseJob,
+                schedule,
+                endDate: processedNotification.recurring.endDate
+                  ? new Date(processedNotification.recurring.endDate)
+                  : undefined,
+              },
+              { priority: QueuePriority.NORMAL },
+            );
+          } else {
+            this.logger.warn('addRecurringJob not available on QueueService');
+          }
         }
-      } else if (type === NotificationType.RECURRING && processedNotification.recurring) {
-        const schedule = processedNotification.recurring.pattern
-          ? { type: 'cron' as const, value: processedNotification.recurring.pattern, timezone: processedNotification.recurring.timezone }
-          : { type: 'interval' as const, value: 0 };
-        const svc: any = this.queueService as any;
-        if (typeof svc.addRecurringJob === 'function') {
-          await svc.addRecurringJob(
-            {
-              ...(baseJob as any),
-              schedule,
-              endDate: processedNotification.recurring.endDate
-                ? new Date(processedNotification.recurring.endDate)
-                : undefined,
-            },
-            { priority: QueuePriority.NORMAL },
-          );
-        } else {
-          this.logger.warn('addRecurringJob not available on QueueService');
-        }
-      }
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      this.logger.error('Failed to enqueue/schedule notification job:', err.message);
+      });
+    } catch (error) {
+      this.logger.error(`Transaction failed: ${error}`);
+      throw error;
+    } finally {
+      await session.endSession();
     }
 
-    return savedNotification;
+    return savedNotification!;
   }
 
   async findByProject(
@@ -261,7 +287,7 @@ export class NotificationsService {
       skip?: number;
     } = {},
   ): Promise<{ notifications: Notification[]; total: number }> {
-    const query: any = { projectId: new Types.ObjectId(projectId) };
+    const query: FilterQuery<NotificationDocument> = { projectId: new Types.ObjectId(projectId) };
 
     if (filters.status) query.status = filters.status;
     if (filters.type) query.type = filters.type;
@@ -325,8 +351,10 @@ export class NotificationsService {
       );
     }
 
-    // TODO: Remove from queue if pending
-    // await this.queueService.removeNotificationJob(notificationId);
+    // Remove from queue if pending
+    if (this.queueService) {
+      await this.queueService.removeNotificationJob(notificationId);
+    }
 
     return notification;
   }
@@ -336,7 +364,7 @@ export class NotificationsService {
     status: NotificationStatus,
     metadata?: Record<string, any>,
   ): Promise<void> {
-    const updateData: any = { status };
+    const updateData: UpdateQuery<NotificationDocument> = { status };
 
     if (status === NotificationStatus.PROCESSING) {
       updateData.processedAt = new Date();
@@ -372,7 +400,7 @@ export class NotificationsService {
       clickedCount?: number;
     },
   ): Promise<void> {
-    const updateData: any = {};
+    const updateData: UpdateQuery<NotificationDocument> = {};
 
     Object.entries(stats).forEach(([key, value]) => {
       if (value !== undefined) {
@@ -455,13 +483,13 @@ export class NotificationsService {
   async addError(notificationId: string, error: string): Promise<void> {
     await this.notificationModel
       .findByIdAndUpdate(notificationId, {
-        $push: { errors: error },
+        $push: { processingErrors: error },
       })
       .exec();
   }
 
   async getScheduledNotifications(beforeDate?: Date): Promise<Notification[]> {
-    const query: any = {
+    const query: FilterQuery<NotificationDocument> = {
       type: NotificationType.SCHEDULED,
       status: NotificationStatus.PENDING,
       scheduledFor: { $lte: beforeDate || new Date() },

@@ -16,10 +16,8 @@ export default () => ({
   },
 
   redis: {
-    url: process.env.REDIS_URL,
-    upstash: {
-      url: process.env.UPSTASH_REDIS_URL,
-      token: process.env.UPSTASH_REDIS_TOKEN,
+    local: {
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
     },
   },
 

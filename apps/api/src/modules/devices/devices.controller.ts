@@ -53,8 +53,13 @@ import { ErrorResponseDto } from '../../common/dto/error-response.dto';
   description: 'API Key for authentication',
   required: true,
 })
+@ApiParam({
+  name: 'projectId',
+  description: 'Project ID',
+  example: '64f1a2b3c4d5e6f7a8b9c0d1',
+})
 export class DevicesController {
-  constructor(private readonly devicesService: DevicesService) {}
+  constructor(private readonly devicesService: DevicesService) { }
 
   /**
    * Validates that the projectId parameter matches the authenticated project
@@ -69,7 +74,7 @@ export class DevicesController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @HighFrequencyRateLimit() // 100 requests per minute for device registration
+  // @HighFrequencyRateLimit() // 100 requests per minute for device registration
   @ApiOperation({
     summary: 'Register device',
     description: `

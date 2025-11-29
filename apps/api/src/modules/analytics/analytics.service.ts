@@ -1,10 +1,33 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, Types, FilterQuery } from 'mongoose';
 import { AnalyticsQueryDto, EngagementQueryDto, NotificationFunnelQueryDto, PerformanceQueryDto } from './dto/analytics-query.dto';
 import { TrackBatchEventsDto, TrackEventDto } from './dto/track-event.dto';
 import { Event, EventDocument } from './schemas/event.schema';
 import { Metrics, MetricsDocument, Granularity } from './schemas/metrics.schema';
+import { Observable, interval, map, switchMap, catchError, of } from 'rxjs';
+
+export interface AnalyticsOverview {
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  failed: number;
+  conversionRate: number;
+}
+
+export interface EngagementMetrics {
+  activeUsers: number;
+  sessions: number;
+  opens: number;
+  clicks: number;
+}
+
+export interface PerformanceMetrics {
+  avgResponseMs: number;
+  queueLatencyMs: number;
+  errorRate: number;
+}
 
 @Injectable()
 export class AnalyticsService {
@@ -12,7 +35,7 @@ export class AnalyticsService {
   constructor(
     @InjectModel(Event.name) private readonly eventModel: Model<EventDocument>,
     @InjectModel(Metrics.name) private readonly metricsModel: Model<MetricsDocument>,
-  ) {}
+  ) { }
 
   async trackEvent(projectId: string, dto: TrackEventDto): Promise<void> {
     const doc = new this.eventModel({
@@ -56,8 +79,8 @@ export class AnalyticsService {
     }
   }
 
-  async getEvents(projectId: string, query: AnalyticsQueryDto): Promise<any> {
-    const q: any = { projectId: new Types.ObjectId(projectId) };
+  async getEvents(projectId: string, query: AnalyticsQueryDto): Promise<{ events: Event[]; total: number; summary: { pageSize: number; offset: number } }> {
+    const q: FilterQuery<EventDocument> = { projectId: new Types.ObjectId(projectId) };
     if (query.startDate || query.endDate) {
       q.timestamp = {};
       if (query.startDate) q.timestamp.$gte = new Date(query.startDate);
@@ -67,14 +90,14 @@ export class AnalyticsService {
     const offset = Math.max(query.offset ?? 0, 0);
 
     const [events, total] = await Promise.all([
-      this.eventModel.find(q).sort({ timestamp: -1 }).skip(offset).limit(limit),
+      this.eventModel.find(q).sort({ timestamp: -1 }).skip(offset).limit(limit).exec(),
       this.eventModel.countDocuments(q),
     ]);
 
     return { events, total, summary: { pageSize: limit, offset } };
   }
 
-  async getNotificationFunnel(projectId: string, _query: NotificationFunnelQueryDto): Promise<any> {
+  async getNotificationFunnel(projectId: string, _query: NotificationFunnelQueryDto): Promise<AnalyticsOverview> {
     const pid = new Types.ObjectId(projectId);
     const types = [
       'notification.sent',
@@ -89,7 +112,7 @@ export class AnalyticsService {
       { $group: { _id: '$type', count: { $sum: 1 } } },
     ]);
 
-    const map = Object.fromEntries(results.map((r: any) => [r._id, r.count]));
+    const map = Object.fromEntries(results.map((r: { _id: string; count: number }) => [r._id, r.count]));
     const sent = map['notification.sent'] || 0;
     const delivered = map['notification.delivered'] || 0;
     const opened = map['notification.opened'] || 0;
@@ -100,7 +123,7 @@ export class AnalyticsService {
     return { sent, delivered, opened, clicked, failed, conversionRate };
   }
 
-  async getEngagementMetrics(projectId: string, _query: EngagementQueryDto): Promise<any> {
+  async getEngagementMetrics(projectId: string, _query: EngagementQueryDto): Promise<EngagementMetrics> {
     const pid = new Types.ObjectId(projectId);
     const [opens, clicks, activeDevices] = await Promise.all([
       this.eventModel.countDocuments({ projectId: pid, type: 'notification.opened' }),
@@ -110,9 +133,47 @@ export class AnalyticsService {
     return { activeUsers: activeDevices, sessions: opens, opens, clicks };
   }
 
-  async getPerformanceMetrics(projectId: string, _query: PerformanceQueryDto): Promise<any> {
+  async getPerformanceMetrics(projectId: string, _query: PerformanceQueryDto): Promise<PerformanceMetrics> {
     // Placeholder until detailed timing data exists
     return { avgResponseMs: 0, queueLatencyMs: 0, errorRate: 0 };
+  }
+
+  getRealtimeStream(projectId: string): Observable<MessageEvent> {
+    return interval(30000).pipe(
+      switchMap(async () => {
+        try {
+          const now = new Date();
+          const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+          const payload = await this.getEvents(projectId, {
+            startDate: hourAgo.toISOString(),
+            endDate: now.toISOString(),
+            limit: 1,
+          });
+          const funnel = await this.getNotificationFunnel(projectId, { startDate: hourAgo.toISOString(), endDate: now.toISOString() } as any);
+          return {
+            data: {
+              type: 'overview',
+              ts: now.toISOString(),
+              total: payload.total,
+              funnel
+            }
+          } as MessageEvent;
+        } catch (e) {
+          return {
+            data: {
+              type: 'error',
+              message: e instanceof Error ? e.message : String(e)
+            }
+          } as MessageEvent;
+        }
+      }),
+      catchError(err => of({
+        data: {
+          type: 'error',
+          message: err instanceof Error ? err.message : String(err)
+        }
+      } as MessageEvent))
+    );
   }
 
   private async updateMetrics(

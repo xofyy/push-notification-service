@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  Sse,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,7 +19,6 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
-import { Res } from '@nestjs/common';
 import { TrackEventDto, TrackBatchEventsDto } from './dto/track-event.dto';
 import {
   AnalyticsQueryDto,
@@ -37,12 +37,13 @@ import {
 } from '../../common/decorators/rate-limit.decorator';
 import { Project } from '../projects/schemas/project.schema';
 import { ErrorResponseDto } from '../../common/dto/error-response.dto';
+import { Observable } from 'rxjs';
 
 @ApiTags('Analytics')
 @Controller('projects/:projectId/analytics')
 @RequireApiKey()
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(private readonly analyticsService: AnalyticsService) { }
 
   /**
    * Validates that the projectId parameter matches the authenticated project
@@ -157,20 +158,20 @@ export class AnalyticsController {
     return {
       summary: events.summary,
       notifications: {
-        totalSent: funnel.totalSent,
-        deliveryRate: funnel.funnel[1]?.rate || 0,
-        openRate: funnel.funnel[2]?.rate || 0,
-        clickThroughRate: funnel.funnel[3]?.rate || 0,
+        totalSent: funnel.sent,
+        deliveryRate: funnel.sent > 0 ? funnel.delivered / funnel.sent : 0,
+        openRate: funnel.sent > 0 ? funnel.opened / funnel.sent : 0,
+        clickThroughRate: funnel.opened > 0 ? funnel.clicked / funnel.opened : 0,
       },
       engagement: {
-        activeDevices: engagement.activeDevices,
+        activeDevices: engagement.activeUsers,
         activeUsers: engagement.activeUsers,
-        engagementRate: engagement.engagementRate,
+        engagementRate: engagement.activeUsers > 0 ? engagement.sessions / engagement.activeUsers : 0,
       },
       performance: {
-        apiResponseTime: performance.apiMetrics.avgResponseTime,
-        apiErrorRate: performance.apiMetrics.errorRate,
-        queueProcessingTime: performance.queueMetrics.avgProcessingTime,
+        apiResponseTime: performance.avgResponseMs,
+        apiErrorRate: performance.errorRate,
+        queueProcessingTime: performance.queueLatencyMs,
       },
     };
   }
@@ -199,8 +200,8 @@ export class AnalyticsController {
     ]);
 
     return {
-      funnel: funnel.funnel,
-      totalSent: funnel.totalSent,
+      funnel: funnel,
+      totalSent: funnel.sent,
       eventBreakdown: events.summary,
       timeline: events.events, // This would be time-series data in a real implementation
     };
@@ -349,45 +350,10 @@ export class AnalyticsController {
     };
   }
 
-  @Get('realtime-sse')
+  @Sse('realtime-sse')
   @ApiOperation({ summary: 'Server-Sent Events for real-time analytics (last hour, updates every 30s)' })
-  async realtimeSSE(@Param('projectId') projectId: string, @CurrentProject() project: Project, @Res() res: any) {
+  realtimeSSE(@Param('projectId') projectId: string, @CurrentProject() project: Project): Observable<MessageEvent> {
     this.validateProjectAccess(projectId, project);
-    res.status(200);
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders?.();
-
-    const write = (eventName: string, data: unknown) => {
-      res.write(`event: ${eventName}\n`);
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
-
-    const interval = setInterval(async () => {
-      try {
-        const now = new Date();
-        const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-        const payload = await this.analyticsService.getEvents(projectId, {
-          startDate: hourAgo.toISOString(),
-          endDate: now.toISOString(),
-          limit: 1,
-        });
-        const funnel = await this.analyticsService.getNotificationFunnel(projectId, { startDate: hourAgo.toISOString(), endDate: now.toISOString() } as any);
-        write('overview', { ts: now.toISOString(), total: payload.total, funnel });
-      } catch (e) {
-        write('error', { message: e?.message || String(e) });
-      }
-    }, 30000);
-
-    reqOnClose(res, () => {
-      clearInterval(interval);
-      res.end();
-    });
+    return this.analyticsService.getRealtimeStream(projectId);
   }
-}
-
-function reqOnClose(res: any, cb: () => void) {
-  res.on?.('close', cb);
-  res.req?.on?.('close', cb);
 }

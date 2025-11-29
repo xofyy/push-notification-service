@@ -2,6 +2,13 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { TokenMessage, TopicMessage } from 'firebase-admin/messaging';
+import {
+  PushProvider,
+  UnifiedNotificationPayload,
+  NotificationTarget,
+  UnifiedSendResult,
+  PlatformType,
+} from '../../common/interfaces/push-provider.interface';
 
 export interface FCMNotificationPayload {
   title: string;
@@ -37,13 +44,13 @@ export interface FCMSendResult {
 }
 
 @Injectable()
-export class FCMService implements OnModuleInit {
+export class FCMService implements OnModuleInit, PushProvider {
   private readonly logger = new Logger(FCMService.name);
   private app: admin.app.App;
   private messaging: admin.messaging.Messaging;
   private isInitialized = false;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   async onModuleInit() {
     await this.initializeFirebase();
@@ -91,10 +98,10 @@ export class FCMService implements OnModuleInit {
       this.messaging = admin.messaging(this.app);
       this.isInitialized = true;
 
-      this.logger.log('✅ FCM service initialized successfully');
+      this.logger.log('FCM service initialized successfully');
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
-      this.logger.error('❌ Failed to initialize FCM service:', errorObj.message);
+      this.logger.error('Failed to initialize FCM service:', errorObj.message);
       // Don't throw error - just mark as not initialized
       this.isInitialized = false;
     }
@@ -365,5 +372,111 @@ export class FCMService implements OnModuleInit {
       available: this.isInitialized,
       projectId: this.configService.get<string>('fcm.projectId'),
     };
+  }
+  async send(
+    payload: UnifiedNotificationPayload,
+    targets: NotificationTarget[],
+    dryRun: boolean = false,
+  ): Promise<UnifiedSendResult['results']> {
+    if (!this.isInitialized) {
+      return targets.map((target) => ({
+        platform: PlatformType.ANDROID,
+        target,
+        success: false,
+        error: 'FCM service not available',
+        shouldRetry: false,
+      }));
+    }
+
+    const results: UnifiedSendResult['results'] = [];
+
+    // Handle tokens
+    const tokens = targets
+      .map((t) => t.token)
+      .filter((token): token is string => Boolean(token));
+
+    if (tokens.length > 0) {
+      try {
+        const result = await this.sendToMultipleDevices({
+          tokens,
+          payload: {
+            title: payload.title,
+            body: payload.body,
+            data: this.toStringRecord(payload.data),
+            imageUrl: payload.imageUrl,
+          },
+          priority: payload.priority,
+          dryRun,
+        });
+
+        const tokenResults = result.results.map((r, index) => ({
+          platform: PlatformType.ANDROID,
+          target: targets.find(t => t.token === tokens[index])!,
+          success: r.success,
+          messageId: r.messageId,
+          error: r.error,
+          shouldRetry: r.shouldRetry,
+          invalidTarget: r.invalidToken,
+        }));
+        results.push(...tokenResults);
+      } catch (error) {
+        // If batch send fails completely
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const failedResults = tokens.map((token) => ({
+          platform: PlatformType.ANDROID,
+          target: targets.find(t => t.token === token)!,
+          success: false,
+          error: errorMsg,
+          shouldRetry: true,
+        }));
+        results.push(...failedResults);
+      }
+    }
+
+    // Handle topics
+    const topicTargets = targets.filter((t) => t.topic);
+    for (const target of topicTargets) {
+      try {
+        await this.sendToTopic(
+          target.topic!,
+          {
+            title: payload.title,
+            body: payload.body,
+            data: this.toStringRecord(payload.data),
+            imageUrl: payload.imageUrl,
+          },
+          {
+            priority: payload.priority,
+            dryRun,
+          },
+        );
+
+        results.push({
+          platform: PlatformType.ANDROID,
+          target,
+          success: true,
+        });
+      } catch (error) {
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+        results.push({
+          platform: PlatformType.ANDROID,
+          target,
+          success: false,
+          error: errorObj.message,
+          shouldRetry: true,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  private toStringRecord(input?: Record<string, unknown>): Record<string, string> | undefined {
+    if (!input) return undefined;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(input)) {
+      out[k] = v === undefined || v === null ? '' : String(v);
+    }
+    return out;
   }
 }

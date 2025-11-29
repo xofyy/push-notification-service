@@ -155,7 +155,7 @@
     "/api/v1/projects/{id}": {
       "get": {
         "description": "Retrieves a specific project by ID. Users can only access their own project.",
-        "operationId": "findOne",
+        "operationId": "Projects_findOne",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -211,7 +211,7 @@
       },
       "patch": {
         "description": "Updates project settings and configuration. Users can only update their own project.",
-        "operationId": "update",
+        "operationId": "Projects_update",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -266,7 +266,7 @@
       },
       "delete": {
         "description": "Permanently deletes a project and all associated data. This action cannot be undone.",
-        "operationId": "remove",
+        "operationId": "Projects_remove",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -377,7 +377,7 @@
     "/api/v1/projects/{projectId}/devices/register": {
       "post": {
         "description": "\n      Registers a new device for push notifications with enhanced validation.\n      Automatically detects platform and validates device tokens.\n      Rate limited to 100 requests per minute.\n    ",
-        "operationId": "register",
+        "operationId": "Devices_register",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -476,7 +476,7 @@
     },
     "/api/v1/projects/{projectId}/devices": {
       "get": {
-        "operationId": "findAll",
+        "operationId": "Devices_findAll",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -491,7 +491,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -553,7 +555,7 @@
     },
     "/api/v1/projects/{projectId}/devices/register/basic": {
       "post": {
-        "operationId": "registerBasic",
+        "operationId": "Devices_registerBasic",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -568,7 +570,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -601,7 +605,7 @@
     "/api/v1/projects/{projectId}/devices/validate-token": {
       "post": {
         "description": "\n      Validates a device token for a specific platform.\n      Checks token format and verifies with the respective push service.\n      Rate limited to 10 requests per minute due to external API calls.\n    ",
-        "operationId": "validateToken",
+        "operationId": "Devices_validateToken",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -610,6 +614,15 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1"
             }
           }
         ],
@@ -650,7 +663,7 @@
     },
     "/api/v1/projects/{projectId}/devices/validate-tokens-batch": {
       "post": {
-        "operationId": "validateTokensBatch",
+        "operationId": "Devices_validateTokensBatch",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -659,6 +672,15 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "required": true,
+            "in": "path",
+            "description": "Project ID",
+            "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1"
             }
           }
         ],
@@ -679,7 +701,7 @@
     },
     "/api/v1/projects/{projectId}/devices/cleanup-tokens": {
       "post": {
-        "operationId": "cleanupTokens",
+        "operationId": "Devices_cleanupTokens",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -694,7 +716,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -724,7 +748,7 @@
     },
     "/api/v1/projects/{projectId}/devices/refresh-token": {
       "post": {
-        "operationId": "refreshToken",
+        "operationId": "Devices_refreshToken",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -739,7 +763,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -761,7 +787,7 @@
     },
     "/api/v1/projects/{projectId}/devices/{id}/token": {
       "patch": {
-        "operationId": "updateToken",
+        "operationId": "Devices_updateToken",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -776,7 +802,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -806,7 +834,7 @@
     },
     "/api/v1/projects/{projectId}/devices/stats": {
       "get": {
-        "operationId": "getStats",
+        "operationId": "Devices_getStats",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -821,7 +849,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -843,7 +873,7 @@
     },
     "/api/v1/projects/{projectId}/devices/tags": {
       "get": {
-        "operationId": "getProjectTags",
+        "operationId": "Devices_getProjectTags",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -858,7 +888,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -880,7 +912,7 @@
     },
     "/api/v1/projects/{projectId}/devices/tags/stats": {
       "get": {
-        "operationId": "getTagStats",
+        "operationId": "Devices_getTagStats",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -895,7 +927,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -917,7 +951,7 @@
     },
     "/api/v1/projects/{projectId}/devices/properties/stats": {
       "get": {
-        "operationId": "getPropertyStats",
+        "operationId": "Devices_getPropertyStats",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -932,7 +966,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -954,7 +990,7 @@
     },
     "/api/v1/projects/{projectId}/devices/segment/query": {
       "post": {
-        "operationId": "queryDevicesBySegment",
+        "operationId": "Devices_queryDevicesBySegment",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -969,7 +1005,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -1001,7 +1039,7 @@
     },
     "/api/v1/projects/{projectId}/devices/segment/count": {
       "post": {
-        "operationId": "countDevicesBySegment",
+        "operationId": "Devices_countDevicesBySegment",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1016,7 +1054,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -1048,7 +1088,7 @@
     },
     "/api/v1/projects/{projectId}/devices/segment/tokens": {
       "post": {
-        "operationId": "getTokensBySegment",
+        "operationId": "Devices_getTokensBySegment",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1063,7 +1103,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -1095,7 +1137,7 @@
     },
     "/api/v1/projects/{projectId}/devices/segment/test": {
       "post": {
-        "operationId": "testSegmentQuery",
+        "operationId": "Devices_testSegmentQuery",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1110,7 +1152,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           }
@@ -1142,7 +1186,7 @@
     },
     "/api/v1/projects/{projectId}/devices/{id}": {
       "get": {
-        "operationId": "findOne",
+        "operationId": "Devices_findOne",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1157,7 +1201,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1192,7 +1238,7 @@
         ]
       },
       "patch": {
-        "operationId": "update",
+        "operationId": "Devices_update",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1207,7 +1253,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1252,7 +1300,7 @@
         ]
       },
       "delete": {
-        "operationId": "remove",
+        "operationId": "Devices_remove",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1267,7 +1315,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1304,7 +1354,7 @@
     },
     "/api/v1/projects/{projectId}/devices/{id}/topics/{topic}": {
       "post": {
-        "operationId": "addToTopic",
+        "operationId": "Devices_addToTopic",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1319,7 +1369,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1355,7 +1407,7 @@
         ]
       },
       "delete": {
-        "operationId": "removeFromTopic",
+        "operationId": "Devices_removeFromTopic",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1370,7 +1422,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1408,7 +1462,7 @@
     },
     "/api/v1/projects/{projectId}/devices/{id}/tags": {
       "post": {
-        "operationId": "addTags",
+        "operationId": "Devices_addTags",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1423,7 +1477,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1451,7 +1507,7 @@
         ]
       },
       "delete": {
-        "operationId": "removeTags",
+        "operationId": "Devices_removeTags",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1466,7 +1522,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1496,7 +1554,7 @@
     },
     "/api/v1/projects/{projectId}/devices/{id}/properties": {
       "put": {
-        "operationId": "setProperties",
+        "operationId": "Devices_setProperties",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1511,7 +1569,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1539,7 +1599,7 @@
         ]
       },
       "patch": {
-        "operationId": "updateProperties",
+        "operationId": "Devices_updateProperties",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1554,7 +1614,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1582,7 +1644,7 @@
         ]
       },
       "delete": {
-        "operationId": "removeProperties",
+        "operationId": "Devices_removeProperties",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1597,7 +1659,9 @@
             "name": "projectId",
             "required": true,
             "in": "path",
+            "description": "Project ID",
             "schema": {
+              "example": "64f1a2b3c4d5e6f7a8b9c0d1",
               "type": "string"
             }
           },
@@ -1628,7 +1692,7 @@
     "/api/v1/projects/{projectId}/notifications/send": {
       "post": {
         "description": "\n      Sends a push notification to specified devices or user segments.\n      Supports multi-platform delivery (iOS, Android, Web) with platform-specific customization.\n      Rate limited to 100 requests per minute.\n    ",
-        "operationId": "send",
+        "operationId": "Notifications_send",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -1921,7 +1985,7 @@
     },
     "/api/v1/projects/{projectId}/notifications/stats": {
       "get": {
-        "operationId": "getStats",
+        "operationId": "Notifications_getStats",
         "parameters": [
           {
             "name": "X-API-Key",
@@ -2072,7 +2136,7 @@
     },
     "/api/v1/projects/{projectId}/templates": {
       "post": {
-        "operationId": "create",
+        "operationId": "Templates_create",
         "parameters": [
           {
             "name": "projectId",
@@ -2108,7 +2172,7 @@
         ]
       },
       "get": {
-        "operationId": "findAll",
+        "operationId": "Templates_findAll",
         "parameters": [
           {
             "name": "projectId",
@@ -2172,7 +2236,7 @@
     },
     "/api/v1/projects/{projectId}/templates/statistics": {
       "get": {
-        "operationId": "getStatistics",
+        "operationId": "Templates_getStatistics",
         "parameters": [
           {
             "name": "projectId",
@@ -2197,7 +2261,7 @@
     },
     "/api/v1/projects/{projectId}/templates/{id}": {
       "get": {
-        "operationId": "findOne",
+        "operationId": "Templates_findOne",
         "parameters": [
           {
             "name": "projectId",
@@ -2239,7 +2303,7 @@
         ]
       },
       "patch": {
-        "operationId": "update",
+        "operationId": "Templates_update",
         "parameters": [
           {
             "name": "projectId",
@@ -2287,7 +2351,7 @@
         ]
       },
       "delete": {
-        "operationId": "remove",
+        "operationId": "Templates_remove",
         "parameters": [
           {
             "name": "projectId",
@@ -2331,7 +2395,7 @@
     },
     "/api/v1/projects/{projectId}/templates/name/{name}": {
       "get": {
-        "operationId": "findByName",
+        "operationId": "Templates_findByName",
         "parameters": [
           {
             "name": "projectId",
@@ -2375,7 +2439,7 @@
     },
     "/api/v1/projects/{projectId}/templates/render": {
       "post": {
-        "operationId": "render",
+        "operationId": "Templates_render",
         "parameters": [
           {
             "name": "projectId",
@@ -2416,7 +2480,7 @@
     },
     "/api/v1/projects/{projectId}/templates/validate": {
       "post": {
-        "operationId": "validate",
+        "operationId": "Templates_validate",
         "parameters": [
           {
             "name": "projectId",
@@ -2451,7 +2515,7 @@
     },
     "/api/v1/projects/{projectId}/queues/jobs": {
       "post": {
-        "operationId": "addJob",
+        "operationId": "Queues_addJob",
         "parameters": [
           {
             "name": "projectId",
@@ -2474,7 +2538,7 @@
     },
     "/api/v1/projects/{projectId}/queues/jobs/{queueName}/{jobId}/status": {
       "get": {
-        "operationId": "getJobStatus",
+        "operationId": "Queues_getJobStatus",
         "parameters": [
           {
             "name": "projectId",
@@ -2513,7 +2577,7 @@
     },
     "/api/v1/projects/{projectId}/queues/jobs/{queueName}/{jobId}": {
       "delete": {
-        "operationId": "cancelJob",
+        "operationId": "Queues_cancelJob",
         "parameters": [
           {
             "name": "projectId",
@@ -2552,7 +2616,7 @@
     },
     "/api/v1/projects/{projectId}/queues/stats": {
       "get": {
-        "operationId": "getQueueStats",
+        "operationId": "Queues_getQueueStats",
         "parameters": [
           {
             "name": "projectId",
@@ -2583,7 +2647,7 @@
     },
     "/api/v1/projects/{projectId}/queues/{queueName}/pause": {
       "post": {
-        "operationId": "pauseQueue",
+        "operationId": "Queues_pauseQueue",
         "parameters": [
           {
             "name": "projectId",
@@ -2614,7 +2678,7 @@
     },
     "/api/v1/projects/{projectId}/queues/{queueName}/resume": {
       "post": {
-        "operationId": "resumeQueue",
+        "operationId": "Queues_resumeQueue",
         "parameters": [
           {
             "name": "projectId",
@@ -2645,7 +2709,7 @@
     },
     "/api/v1/projects/{projectId}/queues/health": {
       "get": {
-        "operationId": "getHealthStatus",
+        "operationId": "Queues_getHealthStatus",
         "parameters": [
           {
             "name": "projectId",
@@ -2719,7 +2783,7 @@
         ]
       },
       "get": {
-        "operationId": "getEvents",
+        "operationId": "Analytics_getEvents",
         "parameters": [
           {
             "name": "projectId",
@@ -2833,7 +2897,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/notifications": {
       "get": {
-        "operationId": "getNotificationAnalytics",
+        "operationId": "Analytics_getNotificationAnalytics",
         "parameters": [
           {
             "name": "projectId",
@@ -2858,7 +2922,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/notifications/funnel": {
       "get": {
-        "operationId": "getNotificationFunnel",
+        "operationId": "Analytics_getNotificationFunnel",
         "parameters": [
           {
             "name": "projectId",
@@ -2883,7 +2947,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/engagement": {
       "get": {
-        "operationId": "getEngagementMetrics",
+        "operationId": "Analytics_getEngagementMetrics",
         "parameters": [
           {
             "name": "projectId",
@@ -2908,7 +2972,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/performance": {
       "get": {
-        "operationId": "getPerformanceMetrics",
+        "operationId": "Analytics_getPerformanceMetrics",
         "parameters": [
           {
             "name": "projectId",
@@ -2933,7 +2997,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/realtime": {
       "get": {
-        "operationId": "getRealTimeData",
+        "operationId": "Analytics_getRealTimeData",
         "parameters": [
           {
             "name": "projectId",
@@ -2996,7 +3060,7 @@
     },
     "/api/v1/projects/{projectId}/analytics/realtime-sse": {
       "get": {
-        "operationId": "realtimeSSE",
+        "operationId": "Analytics_realtimeSSE",
         "parameters": [
           {
             "name": "projectId",
@@ -3020,7 +3084,7 @@
     },
     "/api/v1/admin/rate-limits/status/{projectId}": {
       "get": {
-        "operationId": "getProjectRateLimitStatus",
+        "operationId": "RateLimitAdmin_getProjectRateLimitStatus",
         "parameters": [
           {
             "name": "projectId",
@@ -3045,7 +3109,7 @@
     },
     "/api/v1/admin/rate-limits/status": {
       "get": {
-        "operationId": "getCurrentProjectRateLimitStatus",
+        "operationId": "RateLimitAdmin_getCurrentProjectRateLimitStatus",
         "parameters": [],
         "responses": {
           "200": {
@@ -3060,7 +3124,7 @@
     },
     "/api/v1/admin/rate-limits/reset/{projectId}": {
       "delete": {
-        "operationId": "resetProjectRateLimits",
+        "operationId": "RateLimitAdmin_resetProjectRateLimits",
         "parameters": [
           {
             "name": "projectId",
@@ -3085,7 +3149,7 @@
     },
     "/api/v1/admin/rate-limits/reset": {
       "delete": {
-        "operationId": "resetCurrentProjectRateLimits",
+        "operationId": "RateLimitAdmin_resetCurrentProjectRateLimits",
         "parameters": [],
         "responses": {
           "200": {
@@ -3100,7 +3164,7 @@
     },
     "/api/v1/admin/rate-limits/health": {
       "get": {
-        "operationId": "getRateLimitHealth",
+        "operationId": "RateLimitAdmin_getRateLimitHealth",
         "parameters": [],
         "responses": {
           "200": {
@@ -3116,7 +3180,7 @@
     "/api/v1/health": {
       "get": {
         "description": "Returns the health status of the Push Notification Service API.",
-        "operationId": "getHealth",
+        "operationId": "Health_getHealth",
         "parameters": [],
         "responses": {
           "200": {
@@ -3157,7 +3221,7 @@
     "/api/v1/health/ping": {
       "get": {
         "description": "Simple ping endpoint for basic connectivity testing.",
-        "operationId": "ping",
+        "operationId": "Health_ping",
         "parameters": [],
         "responses": {
           "200": {
@@ -3182,7 +3246,7 @@
     },
     "/api/v1": {
       "get": {
-        "operationId": "getInfo",
+        "operationId": "App_getInfo",
         "parameters": [],
         "responses": {
           "200": {
@@ -3196,7 +3260,7 @@
     },
     "/api/v1/hello": {
       "get": {
-        "operationId": "getHello",
+        "operationId": "App_getHello",
         "parameters": [],
         "responses": {
           "200": {
@@ -3210,7 +3274,7 @@
     },
     "/api/v1/projects/{projectId}/webhooks": {
       "get": {
-        "operationId": "list",
+        "operationId": "Webhooks_list",
         "parameters": [
           {
             "name": "projectId",
@@ -3233,7 +3297,7 @@
         ]
       },
       "post": {
-        "operationId": "add",
+        "operationId": "Webhooks_add",
         "parameters": [
           {
             "name": "projectId",
@@ -3257,7 +3321,7 @@
     },
     "/api/v1/projects/{projectId}/webhooks/{index}": {
       "post": {
-        "operationId": "update",
+        "operationId": "Webhooks_update",
         "parameters": [
           {
             "name": "projectId",
@@ -3287,7 +3351,7 @@
         ]
       },
       "delete": {
-        "operationId": "remove",
+        "operationId": "Webhooks_remove",
         "parameters": [
           {
             "name": "projectId",
@@ -3319,7 +3383,7 @@
     },
     "/api/v1/projects/{projectId}/webhooks/secret/rotate": {
       "post": {
-        "operationId": "rotateSecret",
+        "operationId": "Webhooks_rotateSecret",
         "parameters": [
           {
             "name": "projectId",
@@ -3343,7 +3407,7 @@
     },
     "/api/v1/projects/{projectId}/webhooks/deliveries": {
       "get": {
-        "operationId": "listDeliveries",
+        "operationId": "Webhooks_listDeliveries",
         "parameters": [
           {
             "name": "projectId",
@@ -3386,7 +3450,7 @@
   },
   "info": {
     "title": "Push Notification Service API",
-    "description": "\n      Enterprise-grade Push Notification Service supporting iOS, Android, and Web platforms.\n      \n      ## Features\n      - 🚀 Multi-platform push notifications (FCM, APNs, Web Push)\n      - 📱 Advanced device management and segmentation\n      - 📊 Real-time analytics and delivery tracking\n      - 🏷️ Template-based notifications with variable substitution\n      - ⚡ High-performance queue system with BullMQ\n      - 🔒 Enterprise security with API key authentication\n      - 🛡️ Rate limiting for API protection\n      - 📈 99.9% uptime reliability target\n      \n      ## Authentication\n      All endpoints require an API key in the `X-API-Key` header.\n      \n      ## Rate Limiting\n      API endpoints are rate-limited to ensure fair usage:\n      - **High Frequency**: 100 requests/minute (notifications, events)\n      - **Medium Frequency**: 300 requests/minute (device management)\n      - **Low Frequency**: 1000 requests/hour (analytics, admin)\n      \n      Rate limit headers are included in all responses:\n      - `X-RateLimit-Limit`: Maximum requests allowed\n      - `X-RateLimit-Remaining`: Requests remaining in current window\n      - `X-RateLimit-Reset`: Unix timestamp when the rate limit resets\n    ",
+    "description": "\n      Enterprise-grade Push Notification Service supporting iOS, Android, and Web platforms.\n      \n      ## Features\n      - Multi-platform push notifications (FCM, APNs, Web Push)\n      - Device management and segmentation\n      - Template-based notifications with variable substitution\n      - Real-time analytics and tracking\n      - Rate limiting for API protections with variable substitution\n      - High-performance queue system with BullMQ\n      - Enterprise security with API key authentication\n      - Rate limiting for API protection\n      - 99.9% uptime reliability target\n      \n      ## Authentication\n      All endpoints require an API key in the `X-API-Key` header.\n      \n      ## Rate Limiting\n      API endpoints are rate-limited to ensure fair usage:\n      - **High Frequency**: 100 requests/minute (notifications, events)\n      - **Medium Frequency**: 300 requests/minute (device management)\n      - **Low Frequency**: 1000 requests/hour (analytics, admin)\n      \n      Rate limit headers are included in all responses:\n      - `X-RateLimit-Limit`: Maximum requests allowed\n      - `X-RateLimit-Remaining`: Requests remaining in current window\n      - `X-RateLimit-Reset`: Unix timestamp when the rate limit resets\n    ",
     "version": "1.0.0",
     "contact": {
       "name": "Push Notification Service Team",

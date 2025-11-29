@@ -1,6 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as webpush from 'web-push';
+import {
+  PushProvider,
+  UnifiedNotificationPayload,
+  NotificationTarget,
+  UnifiedSendResult,
+  PlatformType,
+} from '../../common/interfaces/push-provider.interface';
 
 export interface WebPushSubscription {
   endpoint: string;
@@ -57,7 +64,7 @@ export interface WebPushSendResult {
 }
 
 @Injectable()
-export class WebPushService implements OnModuleInit {
+export class WebPushService implements OnModuleInit, PushProvider {
   private readonly logger = new Logger(WebPushService.name);
   private isInitialized = false;
   private vapidDetails?: {
@@ -66,7 +73,7 @@ export class WebPushService implements OnModuleInit {
     subject: string;
   };
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   async onModuleInit() {
     await this.initializeWebPush();
@@ -101,12 +108,12 @@ export class WebPushService implements OnModuleInit {
       webpush.setVapidDetails(subject, publicKey, privateKey);
 
       this.isInitialized = true;
-      this.logger.log('✅ Web Push service initialized successfully');
+      this.logger.log('Web Push service initialized successfully');
     } catch (error) {
       const errorObj =
         error instanceof Error ? error : new Error(String(error));
       this.logger.error(
-        '❌ Failed to initialize Web Push service:',
+        'Failed to initialize Web Push service:',
         errorObj.message,
       );
       this.isInitialized = false;
@@ -368,5 +375,54 @@ export class WebPushService implements OnModuleInit {
       this.logger.warn('Subscription validation error:', errorObj.message);
       return false;
     }
+  }
+
+  async send(
+    payload: UnifiedNotificationPayload,
+    targets: NotificationTarget[],
+    dryRun: boolean = false,
+  ): Promise<UnifiedSendResult['results']> {
+    if (!this.isInitialized) {
+      return targets.map((target) => ({
+        platform: PlatformType.WEB,
+        target,
+        success: false,
+        error: 'Web Push service not available',
+        shouldRetry: false,
+      }));
+    }
+
+    // Handle subscriptions
+    const subscriptions = targets
+      .map((t) => t.subscription)
+      .filter((sub) => Boolean(sub)) as WebPushSubscription[];
+
+    if (subscriptions.length > 0) {
+      const result = await this.sendToMultipleSubscriptions({
+        subscriptions,
+        payload: {
+          title: payload.title,
+          body: payload.body,
+          data: payload.data,
+          image: payload.imageUrl,
+          actions: payload.actions,
+          badge: payload.badge?.toString(),
+        },
+        options: {
+          ttl: payload.ttl,
+        },
+      });
+
+      return result.results.map((r, index) => ({
+        platform: PlatformType.WEB,
+        target: targets[index],
+        success: r.success,
+        error: r.error,
+        shouldRetry: r.shouldRetry,
+        invalidTarget: r.invalidSubscription,
+      }));
+    }
+
+    return [];
   }
 }

@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,10 +21,18 @@ async function bootstrap() {
     }),
   );
 
+  // Global response transformer
+  app.useGlobalInterceptors(new TransformInterceptor());
+
+  // Security headers
+  app.use(helmet());
+
   // Enable CORS
   app.enableCors({
     origin: configService.get('cors.allowedOrigins') || [
       'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
     ],
     credentials: true,
   });
@@ -38,14 +48,15 @@ async function bootstrap() {
       Enterprise-grade Push Notification Service supporting iOS, Android, and Web platforms.
       
       ## Features
-      - 🚀 Multi-platform push notifications (FCM, APNs, Web Push)
-      - 📱 Advanced device management and segmentation
-      - 📊 Real-time analytics and delivery tracking
-      - 🏷️ Template-based notifications with variable substitution
-      - ⚡ High-performance queue system with BullMQ
-      - 🔒 Enterprise security with API key authentication
-      - 🛡️ Rate limiting for API protection
-      - 📈 99.9% uptime reliability target
+      - Multi-platform push notifications (FCM, APNs, Web Push)
+      - Device management and segmentation
+      - Template-based notifications with variable substitution
+      - Real-time analytics and tracking
+      - Rate limiting for API protections with variable substitution
+      - High-performance queue system with BullMQ
+      - Enterprise security with API key authentication
+      - Rate limiting for API protection
+      - 99.9% uptime reliability target
       
       ## Authentication
       All endpoints require an API key in the \`X-API-Key\` header.
@@ -92,7 +103,8 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config, {
-    operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
+    operationIdFactory: (controllerKey: string, methodKey: string) =>
+      `${controllerKey.replace('Controller', '')}_${methodKey}`,
     deepScanRoutes: true,
   });
 
@@ -129,20 +141,21 @@ async function bootstrap() {
       }
 
       writeFileSync(outputPath, JSON.stringify(document, null, 2));
-      console.log(`📋 OpenAPI spec exported to: ${outputPath}`);
+      console.log(`OpenAPI spec exported to: ${outputPath}`);
     } catch (error) {
       const errorObj =
         error instanceof Error ? error : new Error(String(error));
-      console.warn('⚠️  Failed to export OpenAPI spec:', errorObj.message);
+      console.warn('Failed to export OpenAPI spec:', errorObj.message);
     }
   }
 
   await app.listen(port);
 
-  console.log(`🚀 Push Notification Service API running on port ${port}`);
-  console.log(`🌍 Environment: ${environment}`);
-  console.log(`📋 Health check: http://localhost:${port}/api/v1/health`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
-  console.log(`🔧 Configuration loaded and validated`);
+  const logger = new Logger('Bootstrap');
+  logger.log(`Push Notification Service API running on port ${port}`);
+  logger.log(`Environment: ${environment}`);
+  logger.log(`Health check: http://localhost:${port}/api/v1/health`);
+  logger.log(`API Documentation: http://localhost:${port}/api/docs`);
+  logger.log(`Configuration loaded and validated`);
 }
 bootstrap();

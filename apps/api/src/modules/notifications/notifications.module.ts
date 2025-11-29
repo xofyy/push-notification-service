@@ -6,6 +6,7 @@ import {
   Notification,
   NotificationSchema,
 } from './schemas/notification.schema';
+import { Device, DeviceSchema } from '../devices/schemas/device.schema';
 import { TemplatesModule } from '../templates/templates.module';
 import { NotificationModule } from '../../providers/notification/notification.module';
 
@@ -13,6 +14,7 @@ import { NotificationModule } from '../../providers/notification/notification.mo
   imports: [
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
+      { name: Device.name, schema: DeviceSchema },
     ]),
     TemplatesModule,
     NotificationModule,
@@ -21,4 +23,4 @@ import { NotificationModule } from '../../providers/notification/notification.mo
   providers: [NotificationsService],
   exports: [NotificationsService],
 })
-export class NotificationsModule {}
+export class NotificationsModule { }
